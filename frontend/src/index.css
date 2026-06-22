@@ -1,15 +1,19 @@
 * {
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background-color: #f8f9fa; /* light gray like Bootstrap */
-  color: #212529; /* Bootstrap default text color */
+  font-family: Inter, system-ui, sans-serif;
+  background-color: #f5f7fb;
+  color: #212529;
 }
 
-/* Optional: make images responsive by default */
+#root {
+  min-height: 100vh;
+}
+
 img {
   max-width: 100%;
   display: block;

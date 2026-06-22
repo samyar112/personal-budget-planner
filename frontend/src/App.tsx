@@ -1,14 +1,17 @@
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Landing from "./pages/Landing";
+import Home from "./pages/Home";
 
-// import './App.css'
+const App = () => {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+};
 
-function App() {
- return (
-   <div>
-     <h1>Personal Budget Planner</h1>
-     <p>Welcome to the Personal Budget Planner! This application will help you manage your finances effectively.</p>
-   </div>
- )
-}
-
-export default App
+export default App;
