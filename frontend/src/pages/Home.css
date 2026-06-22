@@ -1,0 +1,620 @@
+/* =========================
+   GLOBAL BACKGROUND
+========================= */
+
+body {
+  background: radial-gradient(
+      circle at top,
+      #e8f0ff 0%,
+      #f5f7fb 40%,
+      #f9fafc 100%
+    );
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #1f2937;
+}
+
+/* =========================
+   NAVBAR
+========================= */
+
+.finance-navbar {
+  background: linear-gradient(135deg, #4f46e5, #3b82f6);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.finance-navbar .nav-link {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 500;
+  transition: 0.2s;
+}
+
+.finance-navbar .nav-link:hover {
+  color: white !important;
+}
+
+.finance-navbar .navbar-brand {
+  color: white !important;
+}
+
+/* =========================
+   HERO
+========================= */
+
+.hero-section {
+  background: linear-gradient(135deg, #4f46e5, #3b82f6, #06b6d4);
+  color: white;
+  padding: 110px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-section::after {
+  content: "";
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  background: rgba(255, 255, 255, 0.15);
+  filter: blur(120px);
+  top: -200px;
+  right: -200px;
+  border-radius: 50%;
+}
+
+.hero-section h1 {
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.hero-section p {
+  max-width: 720px;
+  margin: 16px auto 0;
+  opacity: 0.9;
+  font-size: 1.1rem;
+}
+
+.hero-section .btn {
+  margin-top: 24px;
+  background: white;
+  color: #111827;
+  border-radius: 14px;
+  padding: 12px 26px;
+  font-weight: 600;
+  border: none;
+  transition: all 0.25s ease;
+}
+
+.hero-section .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* =========================
+   FOOTER
+========================= */
+
+.finance-footer {
+  background: #0f172a;
+  color: white;
+  margin-top: 60px;
+}
+
+.finance-footer h5,
+.finance-footer h6 {
+  color: white;
+}
+
+.footer-links {
+  list-style: none;
+  padding: 0;
+  margin-top: 10px;
+}
+
+.footer-links li {
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.footer-links li:hover {
+  color: white;
+}
+
+/* =========================
+   PRIVACY BANNER
+========================= */
+
+.privacy-banner {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-left: 5px solid #4f46e5;
+  border-radius: 14px;
+  padding: 16px 20px;
+  font-weight: 500;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+/* =========================
+   SUMMARY CARDS
+========================= */
+
+.summary-card {
+  padding: 22px;
+  border-radius: 18px;
+  color: white;
+  height: 100%;
+  transition: all 0.25s ease;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-card:hover {
+  transform: translateY(-6px);
+}
+
+.summary-card::after {
+  content: "";
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  right: -40px;
+  top: -40px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  filter: blur(20px);
+}
+
+.summary-card h6 {
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.summary-card h3 {
+  margin-top: 10px;
+  font-weight: 800;
+}
+
+.income {
+  background: linear-gradient(135deg, #10b981, #34d399);
+}
+
+.expense {
+  background: linear-gradient(135deg, #ef4444, #fb7185);
+}
+
+.savings {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+}
+
+.score {
+  background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+}
+
+/* =========================
+   DASHBOARD CARDS
+========================= */
+
+.card.dashboard-card {
+  border: none;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.06);
+  transition: all 0.25s ease;
+}
+
+.card.dashboard-card:hover {
+  transform: translateY(-4px);
+}
+
+/* =========================
+   CHART PLACEHOLDER
+========================= */
+
+.placeholder-chart {
+  height: 320px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #eef2ff, #f0f9ff);
+  border: 1px dashed #c7d2fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366f1;
+  font-weight: 600;
+}
+
+/* =========================
+   RECOMMENDATIONS
+========================= */
+.recommendation-list {
+  list-style: none;
+  padding: 0;
+  counter-reset: rec-counter;
+}
+
+.recommendation-list li {
+  padding: 10px 0;
+  padding-left: 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  position: relative;
+  counter-increment: rec-counter;
+}
+
+.recommendation-list li::before {
+  content: counter(rec-counter);
+  position: absolute;
+  left: 0;
+  top: 10px;
+  color: #6366f1;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* =========================
+   TABLE
+========================= */
+
+.table {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.table thead th {
+  background: #f3f4f6;
+  border: none;
+  font-weight: 600;
+  color: #374151;
+}
+
+.table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* =========================
+   BUTTONS
+========================= */
+
+.btn-primary {
+  background: linear-gradient(135deg, #4f46e5, #3b82f6);
+  border: none;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px rgba(79, 70, 229, 0.3);
+}
+
+/* =========================
+   CARD SECTION SUBTITLE
+========================= */
+
+.card-section-sub {
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* =========================
+   PAYMENT CARDS STACK
+========================= */
+
+.payment-cards-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.payment-card {
+  border-radius: 16px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.payment-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* Subtle inner glow like the summary cards */
+.payment-card::after {
+  content: "";
+  position: absolute;
+  width: 150px;
+  height: 150px;
+  right: -50px;
+  top: -60px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  filter: blur(25px);
+  pointer-events: none;
+}
+
+.payment-card--purple {
+  background: linear-gradient(135deg, #7c3aed, #c026d3);
+  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+}
+
+.payment-card--orange {
+  background: linear-gradient(135deg, #f97316, #fbbf24);
+  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.3);
+}
+
+.payment-card--dark {
+  background: linear-gradient(135deg, #1e293b, #1e4a3e);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.payment-card__left {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.payment-card__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.payment-card__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin-top: 4px;
+}
+
+.payment-card__num {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.5px;
+}
+
+/* Mastercard logo */
+.mastercard-logo {
+  display: flex;
+  align-items: center;
+}
+
+.mc-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.mc-dot--red {
+  background: #eb001b;
+  z-index: 1;
+}
+
+.mc-dot--yellow {
+  background: #f79e1b;
+  margin-left: -6px;
+  opacity: 0.9;
+}
+
+/* Card chip */
+.card-chip {
+  width: 28px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+/* Contactless icon */
+.card-contactless {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* =========================
+   ADD CARD BUTTON
+========================= */
+
+.add-card-btn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 14px;
+  border: 1.5px dashed #c7d2fe;
+  background: rgba(238, 242, 255, 0.5);
+  color: #6366f1;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.add-card-btn:hover {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: #6366f1;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.15);
+}
+
+.add-card-btn__icon {
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 400;
+}
+
+/* =========================
+   UPCOMING BILLS
+========================= */
+
+.bills-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.reminders-btn {
+  font-size: 12px;
+  font-weight: 600;
+  color: #4f46e5;
+  background: rgba(238, 242, 255, 0.8);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 20px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reminders-btn:hover {
+  background: rgba(99, 102, 241, 0.12);
+  border-color: #6366f1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.bill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bill-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  transition: background 0.15s ease;
+}
+
+.bill-item:hover {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+/* Bill brand icons */
+.bill-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.bill-icon--netflix {
+  background: #141414;
+  color: #e50914;
+  font-family: Georgia, serif;
+  font-size: 16px;
+  letter-spacing: -0.5px;
+}
+
+.bill-icon--apple {
+  background: #f3f4f6;
+  color: #1d1d1f;
+  font-size: 20px;
+}
+
+.bill-icon--adobe {
+  background: #ff0000;
+  color: white;
+  font-size: 12px;
+  letter-spacing: -0.5px;
+}
+
+.bill-info {
+  flex: 1;
+}
+
+.bill-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.bill-due {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.bill-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+// Recent Transactions - Card
+.card-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card-bank {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.card-ending {
+  font-size: 11px;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+}
+
+.score-max {
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.score-label {
+  font-size: 11px;
+  opacity: 0.8;
+  margin: 6px 0 0;
+}
+
+.score-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-top: 6px;
+  letter-spacing: 0.3px;
+}
+
+.badge-good {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.badge-fair {
+  background: rgba(251, 191, 36, 0.3);
+  color: #fef3c7;
+  border: 1px solid rgba(251, 191, 36, 0.5);
+}
+
+.badge-poor {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fee2e2;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+}
