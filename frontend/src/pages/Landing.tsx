@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import BrandName, { AUTH_STORAGE_KEY, BRAND_NAME } from "../components/BrandName";
+import AmbientBackground from "../components/AmbientBackground";
 import "./Landing.css";
 
 type FormState = {
@@ -97,7 +99,7 @@ const Landing = () => {
       // Simulated auth request
       await new Promise((res) => setTimeout(res, 800));
 
-      localStorage.setItem("finguard-auth", "true");
+      localStorage.setItem(AUTH_STORAGE_KEY, "true");
 
       navigate("/home");
     } catch {
@@ -109,10 +111,12 @@ const Landing = () => {
 
   return (
     <div className="landing-page">
-
+      <AmbientBackground />
       {/* NAV */}
       <nav className="landing-nav">
-        <div className="landing-nav__brand">FinGuard</div>
+        <div className="landing-nav__brand">
+          <BrandName />
+        </div>
         <div className="landing-nav__links">
           <a href="#features">Features</a>
           <a href="#pricing">Pricing</a>
@@ -135,7 +139,7 @@ const Landing = () => {
           </h1>
 
           <p className="landing-subhead">
-            FinGuard helps you understand spending, reduce waste,
+            {BRAND_NAME} helps you understand spending, reduce waste,
             and build better financial habits—securely and privately.
           </p>
 
@@ -297,7 +301,9 @@ const Landing = () => {
         <div className="landing-footer__inner">
 
           <div>
-            <h5>FinGuard</h5>
+            <h5>
+              <BrandName />
+            </h5>
             <p>
               Private AI-powered budgeting for modern financial clarity.
             </p>
@@ -323,7 +329,7 @@ const Landing = () => {
         </div>
 
         <div className="landing-footer__copy">
-          © {new Date().getFullYear()} FinGuard. All rights reserved.
+          © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
         </div>
       </footer>
 

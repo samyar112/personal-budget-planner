@@ -3,10 +3,16 @@
 ========================= */
 
 .landing-page {
+  position: relative;
   min-height: 100vh;
-  background: radial-gradient(circle at top, #e8f0ff 0%, #f5f7fb 40%, #f9fafc 100%);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #1f2937;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.landing-page > :not(.ambient-glow) {
+  position: relative;
+  z-index: 1;
 }
 
 /* =========================
@@ -14,19 +20,24 @@
 ========================= */
 
 .landing-nav {
+  position: relative;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 60px;
-  background: linear-gradient(135deg, #4f46e5, #3b82f6);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  padding: 22px 60px;
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
 }
 
 .landing-nav__brand {
   font-size: 22px;
-  font-weight: 800;
-  color: white;
-  letter-spacing: -0.5px;
+  font-weight: 700;
+  color: var(--foreground);
+  letter-spacing: -0.4px;
 }
 
 .landing-nav__links {
@@ -35,15 +46,15 @@
 }
 
 .landing-nav__links a {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--muted-foreground);
   text-decoration: none;
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
   transition: color 0.2s;
 }
 
 .landing-nav__links a:hover {
-  color: white;
+  color: var(--foreground);
 }
 
 /* =========================
@@ -67,9 +78,9 @@
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #4f46e5;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: var(--accent);
+  background: var(--accent-muted);
+  border: 1px solid var(--accent-soft);
   border-radius: 20px;
   padding: 4px 14px;
   margin-bottom: 20px;
@@ -80,21 +91,18 @@
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -1.5px;
-  color: #111827;
+  color: var(--foreground);
   margin-bottom: 20px;
 }
 
 .landing-headline--accent {
-  background: linear-gradient(135deg, #4f46e5, #3b82f6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--primary);
 }
 
 .landing-subhead {
   font-size: 16px;
-  color: #6b7280;
-  line-height: 1.7;
+  color: var(--foreground);
+  line-height: 1.65;
   max-width: 460px;
   margin-bottom: 40px;
 }
@@ -115,19 +123,19 @@
 .landing-stat__num {
   font-size: 24px;
   font-weight: 800;
-  color: #111827;
+  color: var(--foreground);
 }
 
 .landing-stat__label {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted-foreground);
   font-weight: 500;
 }
 
 .landing-stat__divider {
   width: 1px;
   height: 36px;
-  background: #e5e7eb;
+  background: var(--muted);
 }
 
 /* =========================
@@ -135,18 +143,19 @@
 ========================= */
 
 .auth-card {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(16px);
+  background: var(--card-strong);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border-radius: 24px;
   padding: 36px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
+  border: 1px solid var(--border);
 }
 
 /* Tabs */
 .auth-card__tabs {
   display: flex;
-  background: #f3f4f6;
+  background: var(--muted);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 28px;
@@ -160,15 +169,15 @@
   border-radius: 10px;
   font-size: 14px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .auth-tab--active {
   background: white;
-  color: #4f46e5;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 /* Form */
@@ -187,27 +196,28 @@
 .auth-field label {
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--foreground);
 }
 
 .auth-field input {
   padding: 11px 14px;
   border-radius: 12px;
-  border: 1.5px solid #e5e7eb;
+  border: 1.5px solid var(--muted);
   font-size: 14px;
-  color: #1f2937;
+  color: var(--foreground);
   background: white;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .auth-field input:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-muted);
 }
 
 .auth-field input::placeholder {
-  color: #d1d5db;
+  color: var(--muted-foreground);
+  opacity: 0.6;
 }
 
 .auth-forgot {
@@ -217,7 +227,7 @@
 
 .auth-forgot a {
   font-size: 12px;
-  color: #6366f1;
+  color: var(--primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -228,9 +238,9 @@
 
 .auth-error {
   font-size: 13px;
-  color: #ef4444;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--destructive);
+  background: var(--destructive-muted);
+  border: 1px solid var(--destructive-border);
   border-radius: 10px;
   padding: 8px 12px;
   margin: 0;
@@ -238,31 +248,30 @@
 
 .auth-submit {
   margin-top: 4px;
-  padding: 13px;
-  background: linear-gradient(135deg, #4f46e5, #3b82f6);
-  color: white;
+  padding: 11px 22px;
+  background: var(--primary);
+  color: var(--primary-foreground);
   border: none;
-  border-radius: 14px;
-  font-size: 15px;
-  font-weight: 700;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: opacity 0.15s ease;
 }
 
 .auth-submit:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(79, 70, 229, 0.35);
+  opacity: 0.9;
 }
 
 .auth-switch {
   text-align: center;
   font-size: 13px;
-  color: #6b7280;
+  color: var(--muted-foreground);
   margin: 0;
 }
 
 .auth-switch span {
-  color: #4f46e5;
+  color: var(--primary);
   font-weight: 600;
   cursor: pointer;
 }
@@ -274,9 +283,9 @@
 .auth-privacy {
   margin-top: 20px;
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted-foreground);
   text-align: center;
-  background: #f9fafb;
+  background: var(--muted);
   border-radius: 10px;
   padding: 10px;
 }
@@ -286,7 +295,7 @@
 ========================= */
 
 .landing-features {
-  background: white;
+  background: var(--background);
   padding: 90px 60px;
 }
 
@@ -299,13 +308,13 @@
   font-size: 36px;
   font-weight: 800;
   letter-spacing: -0.5px;
-  color: #111827;
+  color: var(--foreground);
   margin-bottom: 10px;
 }
 
 .landing-features__header p {
   font-size: 16px;
-  color: #6b7280;
+  color: var(--muted-foreground);
 }
 
 .features-grid {
@@ -317,18 +326,18 @@
 }
 
 .feature-card {
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(99, 102, 241, 0.1);
+  background: var(--card);
+  border: 1px solid var(--border-subtle);
   border-radius: 18px;
   padding: 28px;
   transition: all 0.25s ease;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
 }
 
 .feature-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(99, 102, 241, 0.12);
-  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 16px 40px var(--primary-muted);
+  border-color: var(--primary-soft);
 }
 
 .feature-card__icon {
@@ -339,13 +348,13 @@
 .feature-card h4 {
   font-size: 16px;
   font-weight: 700;
-  color: #111827;
+  color: var(--foreground);
   margin-bottom: 8px;
 }
 
 .feature-card p {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--muted-foreground);
   line-height: 1.6;
   margin: 0;
 }
@@ -355,9 +364,22 @@
 ========================= */
 
 .landing-footer {
-  background: #0f172a;
-  color: white;
+  background: var(--foreground-overlay);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--primary-foreground);
   padding: 60px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -4px 32px rgba(15, 23, 42, 0.12);
+}
+
+.landing-footer .brand-name,
+.landing-footer .brand-name__ai {
+  color: var(--primary-foreground);
+}
+
+.landing-footer .brand-name__ai {
+  color: var(--primary);
 }
 
 .landing-footer__inner {

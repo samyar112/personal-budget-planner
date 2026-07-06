@@ -1,12 +1,15 @@
+import BrandName, { BRAND_NAME } from "../components/BrandName";
+import AmbientBackground from "../components/AmbientBackground";
 import "./Home.css";
 
 const Home = () => {
   return (
     <div className="home-page">
-      <nav className="navbar navbar-expand-lg navbar-dark px-4 py-3 finance-navbar">
+      <AmbientBackground />
+      <nav className="navbar navbar-expand-lg px-4 py-3 finance-navbar">
         <div className="container-fluid">
           <a className="navbar-brand fw-bold" href="#">
-            FinGuard
+            <BrandName />
           </a>
 
           <button
@@ -39,7 +42,9 @@ const Home = () => {
               </li>
 
               <li className="nav-item">
-                <button className="btn btn-light btn-sm px-3">Login</button>
+                <button type="button" className="btn-theme btn-theme--ghost btn-theme--sm">
+                  Login
+                </button>
               </li>
             </ul>
           </div>
@@ -48,9 +53,10 @@ const Home = () => {
 
       {/* Hero */}
       <section className="hero-section">
-        <div className="container text-center">
+        <div className="container hero-section__inner glass-panel">
           <h1 className="display-4 fw-bold">
-            Smart Budgeting. Private by Design.
+            Smart Budgeting.{" "}
+            <span className="text-theme-primary">Private by Design.</span>
           </h1>
 
           <p className="lead mt-3">
@@ -58,7 +64,7 @@ const Home = () => {
             recommendations while keeping your sensitive information protected.
           </p>
 
-          <button className="btn btn-light btn-lg mt-3">
+          <button type="button" className="btn-theme btn-theme--primary btn-theme--lg mt-3">
             Upload Statement
           </button>
         </div>
@@ -141,7 +147,9 @@ const Home = () => {
         <div className="card-body">
             <div className="d-flex justify-content-between align-items-center mb-3">
             <h4>Recent Transactions</h4>
-            <button className="btn btn-primary">View All</button>
+            <button type="button" className="btn-theme btn-theme--primary btn-theme--sm">
+              View All
+            </button>
             </div>
 
             <div className="table-responsive">
@@ -167,7 +175,7 @@ const Home = () => {
                         <span className="card-ending">•••• 207</span>
                     </div>
                     </td>
-                    <td className="text-danger text-end">-$54.82</td>
+                    <td className="text-end amount-negative">-$54.82</td>
                 </tr>
 
                 <tr>
@@ -180,8 +188,7 @@ const Home = () => {
                         <span className="card-ending">•••• 202</span>
                     </div>
                     </td>
-                    <td className="text-success text-end">+$2,250.00</td>
-                </tr>
+                    <td className="text-end amount-positive">+$2,250.00</td>                </tr>
 
                 <tr>
                     <td>06/17/2026</td>
@@ -193,7 +200,7 @@ const Home = () => {
                         <span className="card-ending">•••• 207</span>
                     </div>
                     </td>
-                    <td className="text-danger text-end">-$15.99</td>
+                    <td className="text-end amount-negative">-$15.99</td>
                 </tr>
                 </tbody>
             </table>
@@ -259,7 +266,7 @@ const Home = () => {
                 </div>
 
                 {/* Add Card Button */}
-                <button className="add-card-btn">
+                <button type="button" className="btn-theme btn-theme--outline btn-theme--block btn-theme--dashed">
                   <span className="add-card-btn__icon">+</span>
                   Add Card
                 </button>
@@ -276,7 +283,7 @@ const Home = () => {
                     <h4 className="mb-0">Upcoming Bills</h4>
                     <p className="card-section-sub mb-0">Stay ahead of your payments</p>
                   </div>
-                  <button className="reminders-btn">
+                  <button type="button" className="btn-theme btn-theme--outline btn-theme--sm btn-theme--pill">
                     🔔 Reminders
                   </button>
                 </div>
@@ -317,12 +324,14 @@ const Home = () => {
           </div>
         </div>
 
-        <footer className="finance-footer mt-5">
+        <footer className="finance-footer glass-panel glass-panel--footer mt-5">
           <div className="container py-4">
             <div className="row">
               <div className="col-md-4">
-                <h5 className="fw-bold">FinGuard</h5>
-                <p className="text-muted">
+                <h5 className="fw-bold">
+                  <BrandName />
+                </h5>
+                <p className="text-theme-muted">
                   Private, AI-powered budgeting that keeps your financial data
                   secure.
                 </p>
@@ -349,8 +358,8 @@ const Home = () => {
 
             <hr />
 
-            <p className="text-center text-muted mb-0">
-              © {new Date().getFullYear()} FinGuard. All rights reserved.
+            <p className="text-center text-theme-muted mb-0">
+              © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
             </p>
           </div>
         </footer>
