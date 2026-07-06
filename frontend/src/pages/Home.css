@@ -1,16 +1,18 @@
 /* =========================
-   GLOBAL BACKGROUND
+   PAGE
 ========================= */
 
-body {
-  background: radial-gradient(
-      circle at top,
-      #e8f0ff 0%,
-      #f5f7fb 40%,
-      #f9fafc 100%
-    );
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #1f2937;
+.home-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.home-page > :not(.ambient-glow) {
+  position: relative;
+  z-index: 1;
 }
 
 /* =========================
@@ -18,23 +20,25 @@ body {
 ========================= */
 
 .finance-navbar {
-  background: linear-gradient(135deg, #4f46e5, #3b82f6);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  background: var(--card);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
 }
 
 .finance-navbar .nav-link {
-  color: rgba(255, 255, 255, 0.85) !important;
+  color: var(--muted-foreground) !important;
   font-weight: 500;
   transition: 0.2s;
 }
 
 .finance-navbar .nav-link:hover {
-  color: white !important;
+  color: var(--foreground) !important;
 }
 
 .finance-navbar .navbar-brand {
-  color: white !important;
+  color: var(--foreground) !important;
 }
 
 /* =========================
@@ -42,51 +46,30 @@ body {
 ========================= */
 
 .hero-section {
-  background: linear-gradient(135deg, #4f46e5, #3b82f6, #06b6d4);
-  color: white;
-  padding: 110px 20px;
+  padding: 48px 20px 64px;
   position: relative;
-  overflow: hidden;
 }
 
-.hero-section::after {
-  content: "";
-  position: absolute;
-  width: 600px;
-  height: 600px;
-  background: rgba(255, 255, 255, 0.15);
-  filter: blur(120px);
-  top: -200px;
-  right: -200px;
-  border-radius: 50%;
+.hero-section__inner {
+  max-width: 760px;
+  margin: 0 auto;
+  text-align: center;
+  border-radius: 28px;
+  padding: 40px 44px;
 }
 
 .hero-section h1 {
-  font-weight: 800;
-  letter-spacing: -1px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--foreground);
 }
 
 .hero-section p {
-  max-width: 720px;
+  max-width: 560px;
   margin: 16px auto 0;
-  opacity: 0.9;
-  font-size: 1.1rem;
-}
-
-.hero-section .btn {
-  margin-top: 24px;
-  background: white;
-  color: #111827;
-  border-radius: 14px;
-  padding: 12px 26px;
-  font-weight: 600;
-  border: none;
-  transition: all 0.25s ease;
-}
-
-.hero-section .btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--foreground);
 }
 
 /* =========================
@@ -94,14 +77,23 @@ body {
 ========================= */
 
 .finance-footer {
-  background: #0f172a;
-  color: white;
-  margin-top: 60px;
+  color: var(--primary-foreground);
+  margin: 60px 24px 32px;
+  border-radius: 20px;
+  padding: 0;
+}
+
+.finance-footer .brand-name {
+  color: var(--primary-foreground);
+}
+
+.finance-footer .brand-name__ai {
+  color: var(--primary);
 }
 
 .finance-footer h5,
 .finance-footer h6 {
-  color: white;
+  color: var(--primary-foreground);
 }
 
 .footer-links {
@@ -112,13 +104,17 @@ body {
 
 .footer-links li {
   margin-bottom: 8px;
-  color: rgba(255, 255, 255, 0.7);
+  color: color-mix(in srgb, var(--primary-foreground) 70%, transparent);
   cursor: pointer;
   transition: 0.2s;
 }
 
 .footer-links li:hover {
-  color: white;
+  color: var(--primary-foreground);
+}
+
+.finance-footer hr {
+  border-color: color-mix(in srgb, var(--primary-foreground) 12%, transparent);
 }
 
 /* =========================
@@ -126,14 +122,14 @@ body {
 ========================= */
 
 .privacy-banner {
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--card-strong);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(99, 102, 241, 0.15);
-  border-left: 5px solid #4f46e5;
+  border: 1px solid var(--border-subtle);
+  border-left: 5px solid var(--accent);
   border-radius: 14px;
   padding: 16px 20px;
   font-weight: 500;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 /* =========================
@@ -143,10 +139,10 @@ body {
 .summary-card {
   padding: 22px;
   border-radius: 18px;
-  color: white;
+  color: var(--primary-foreground);
   height: 100%;
   transition: all 0.25s ease;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-md);
   position: relative;
   overflow: hidden;
 }
@@ -178,19 +174,20 @@ body {
 }
 
 .income {
-  background: linear-gradient(135deg, #10b981, #34d399);
+  background: var(--accent);
+  box-shadow: 0 8px 24px var(--accent-emphasis);
 }
 
 .expense {
-  background: linear-gradient(135deg, #ef4444, #fb7185);
+  background: var(--gradient-primary);
 }
 
 .savings {
-  background: linear-gradient(135deg, #3b82f6, #60a5fa);
+  background: linear-gradient(135deg, var(--foreground), var(--accent));
 }
 
 .score {
-  background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+  background: var(--gradient-foreground);
 }
 
 /* =========================
@@ -200,10 +197,16 @@ body {
 .card.dashboard-card {
   border: none;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.75);
+  background: var(--card);
   backdrop-filter: blur(12px);
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--glass-shadow), var(--glass-inset);
   transition: all 0.25s ease;
+  border: 1px solid var(--border-subtle);
+}
+
+.card.dashboard-card h4 {
+  color: var(--foreground);
+  font-weight: 700;
 }
 
 .card.dashboard-card:hover {
@@ -217,12 +220,12 @@ body {
 .placeholder-chart {
   height: 320px;
   border-radius: 16px;
-  background: linear-gradient(135deg, #eef2ff, #f0f9ff);
-  border: 1px dashed #c7d2fe;
+  background: linear-gradient(135deg, var(--muted), var(--background));
+  border: 1px dashed var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6366f1;
+  color: var(--primary);
   font-weight: 600;
 }
 
@@ -238,9 +241,10 @@ body {
 .recommendation-list li {
   padding: 10px 0;
   padding-left: 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
   position: relative;
   counter-increment: rec-counter;
+  color: var(--foreground);
 }
 
 .recommendation-list li::before {
@@ -248,7 +252,7 @@ body {
   position: absolute;
   left: 0;
   top: 10px;
-  color: #6366f1;
+  color: var(--primary);
   font-weight: 700;
   font-size: 13px;
 }
@@ -263,32 +267,28 @@ body {
 }
 
 .table thead th {
-  background: #f3f4f6;
+  background: var(--muted);
   border: none;
   font-weight: 600;
-  color: #374151;
+  color: var(--foreground);
+}
+
+.table tbody tr {
+  color: var(--foreground);
 }
 
 .table tbody tr:hover {
-  background: rgba(99, 102, 241, 0.05);
+  background: var(--accent-subtle);
 }
 
-/* =========================
-   BUTTONS
-========================= */
-
-.btn-primary {
-  background: linear-gradient(135deg, #4f46e5, #3b82f6);
-  border: none;
-  border-radius: 12px;
-  padding: 10px 18px;
+.amount-negative {
+  color: var(--foreground);
   font-weight: 600;
-  transition: all 0.2s ease;
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(79, 70, 229, 0.3);
+.amount-positive {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* =========================
@@ -297,7 +297,7 @@ body {
 
 .card-section-sub {
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--muted-foreground);
 }
 
 /* =========================
@@ -324,10 +324,9 @@ body {
 
 .payment-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-lg);
 }
 
-/* Subtle inner glow like the summary cards */
 .payment-card::after {
   content: "";
   position: absolute;
@@ -342,18 +341,18 @@ body {
 }
 
 .payment-card--purple {
-  background: linear-gradient(135deg, #7c3aed, #c026d3);
-  box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+  background: var(--gradient-foreground);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--foreground) 30%, transparent);
 }
 
 .payment-card--orange {
-  background: linear-gradient(135deg, #f97316, #fbbf24);
-  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.3);
+  background: var(--gradient-primary);
+  box-shadow: 0 8px 20px var(--primary-emphasis);
 }
 
 .payment-card--dark {
-  background: linear-gradient(135deg, #1e293b, #1e4a3e);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(135deg, var(--foreground), var(--accent));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--foreground) 25%, transparent);
 }
 
 .payment-card__left {
@@ -422,32 +421,8 @@ body {
 }
 
 /* =========================
-   ADD CARD BUTTON
+   ADD CARD BUTTON ICON
 ========================= */
-
-.add-card-btn {
-  width: 100%;
-  padding: 13px;
-  border-radius: 14px;
-  border: 1.5px dashed #c7d2fe;
-  background: rgba(238, 242, 255, 0.5);
-  color: #6366f1;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-}
-
-.add-card-btn:hover {
-  background: rgba(99, 102, 241, 0.08);
-  border-color: #6366f1;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.15);
-}
 
 .add-card-btn__icon {
   font-size: 18px;
@@ -465,24 +440,9 @@ body {
   align-items: flex-start;
 }
 
-.reminders-btn {
-  font-size: 12px;
-  font-weight: 600;
-  color: #4f46e5;
-  background: rgba(238, 242, 255, 0.8);
-  border: 1px solid rgba(99, 102, 241, 0.2);
-  border-radius: 20px;
-  padding: 6px 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.bills-header .btn-theme {
   white-space: nowrap;
   flex-shrink: 0;
-}
-
-.reminders-btn:hover {
-  background: rgba(99, 102, 241, 0.12);
-  border-color: #6366f1;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
 .bill-list {
@@ -501,7 +461,7 @@ body {
 }
 
 .bill-item:hover {
-  background: rgba(99, 102, 241, 0.05);
+  background: var(--accent-subtle);
 }
 
 /* Bill brand icons */
@@ -526,8 +486,8 @@ body {
 }
 
 .bill-icon--apple {
-  background: #f3f4f6;
-  color: #1d1d1f;
+  background: var(--muted);
+  color: var(--foreground);
   font-size: 20px;
 }
 
@@ -545,22 +505,22 @@ body {
 .bill-name {
   font-size: 14px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--foreground);
 }
 
 .bill-due {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--muted-foreground);
   margin-top: 2px;
 }
 
 .bill-amount {
   font-size: 15px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--foreground);
 }
 
-// Recent Transactions - Card
+/* Recent Transactions - Card */
 .card-detail {
   display: flex;
   flex-direction: column;
@@ -570,12 +530,12 @@ body {
 .card-bank {
   font-size: 13px;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--foreground);
 }
 
 .card-ending {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--muted-foreground);
   letter-spacing: 0.5px;
 }
 
@@ -602,19 +562,19 @@ body {
 }
 
 .badge-good {
-  background: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: color-mix(in srgb, var(--primary-foreground) 25%, transparent);
+  color: var(--primary-foreground);
+  border: 1px solid color-mix(in srgb, var(--primary-foreground) 40%, transparent);
 }
 
 .badge-fair {
-  background: rgba(251, 191, 36, 0.3);
-  color: #fef3c7;
-  border: 1px solid rgba(251, 191, 36, 0.5);
+  background: var(--primary-soft);
+  color: var(--primary-foreground);
+  border: 1px solid var(--primary-emphasis);
 }
 
 .badge-poor {
-  background: rgba(239, 68, 68, 0.3);
-  color: #fee2e2;
-  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: var(--destructive-subtle);
+  color: var(--destructive-foreground);
+  border: 1px solid var(--destructive-border);
 }
