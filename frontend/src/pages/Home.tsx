@@ -1,16 +1,19 @@
+import { Link } from "react-router-dom";
 import BrandName, { BRAND_NAME } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import "./Home.css";
 
 const Home = () => {
+  const financialScore = 84;
+
   return (
     <div className="home-page">
       <AmbientBackground />
       <nav className="navbar navbar-expand-lg px-4 py-3 finance-navbar">
         <div className="container-fluid">
-          <a className="navbar-brand fw-bold" href="#">
-            <BrandName />
-          </a>
+          <Link className="navbar-brand fw-bold" to="/home">
+            <BrandName logoSize="sm" />
+          </Link>
 
           <button
             className="navbar-toggler"
@@ -42,9 +45,9 @@ const Home = () => {
               </li>
 
               <li className="nav-item">
-                <button type="button" className="btn-theme btn-theme--ghost btn-theme--sm">
+                <Link className="btn btn-secondary btn-sm text-nav" to="/">
                   Login
-                </button>
+                </Link>
               </li>
             </ul>
           </div>
@@ -54,17 +57,17 @@ const Home = () => {
       {/* Hero */}
       <section className="hero-section">
         <div className="container hero-section__inner glass-panel">
-          <h1 className="display-4 fw-bold">
+          <h1 className="text-headline text-center">
             Smart Budgeting.{" "}
-            <span className="text-theme-primary">Private by Design.</span>
+            <span className="text-primary">Private by Design.</span>
           </h1>
 
-          <p className="lead mt-3">
+          <p className="text-body-brand mt-3 text-center">
             Upload your financial statements and receive personalized budget
             recommendations while keeping your sensitive information protected.
           </p>
 
-          <button type="button" className="btn-theme btn-theme--primary btn-theme--lg mt-3">
+          <button type="button" className="btn btn-primary text-nav mt-3 d-block mx-auto">
             Upload Statement
           </button>
         </div>
@@ -103,9 +106,9 @@ const Home = () => {
             <div className="col-md-3">
                 <div className="summary-card score">
                     <h6>Financial Score</h6>
-                    <h3>84<span className="score-max">/100</span></h3>
-                    <span className={`score-badge ${84 >= 80 ? "badge-good" : 84 >= 60 ? "badge-fair" : "badge-poor"}`}>
-                    {84 >= 80 ? "✓ Good" : 84 >= 60 ? "⚠ Fair" : "✗ Needs Work"}
+                    <h3>{financialScore}<span className="score-max">/100</span></h3>
+                    <span className={`score-badge ${financialScore >= 80 ? "badge-good" : financialScore >= 60 ? "badge-fair" : "badge-poor"}`}>
+                    {financialScore >= 80 ? "✓ Good" : financialScore >= 60 ? "⚠ Fair" : "✗ Needs Work"}
                     </span>
                     <p className="score-label">Based on savings, spending & debt</p>
                 </div>
@@ -116,7 +119,7 @@ const Home = () => {
         <div className="row g-4">
           {/* Spending Breakdown */}
           <div className="col-lg-7">
-            <div className="card dashboard-card">
+            <div className="card glass-card dashboard-card">
               <div className="card-body">
                 <h4 className="mb-4">Spending Breakdown</h4>
 
@@ -127,7 +130,7 @@ const Home = () => {
 
           {/* Recommendations */}
           <div className="col-lg-5">
-            <div className="card dashboard-card h-100">
+            <div className="card glass-card dashboard-card h-100">
               <div className="card-body">
                 <h4 className="mb-4">AI Recommendations</h4>
 
@@ -143,11 +146,11 @@ const Home = () => {
         </div>
 
         {/* Transactions */}
-        <div className="card dashboard-card mt-4">
+        <div className="card glass-card dashboard-card mt-4">
         <div className="card-body">
             <div className="d-flex justify-content-between align-items-center mb-3">
             <h4>Recent Transactions</h4>
-            <button type="button" className="btn-theme btn-theme--primary btn-theme--sm">
+            <button type="button" className="btn btn-primary btn-sm text-nav">
               View All
             </button>
             </div>
@@ -212,14 +215,14 @@ const Home = () => {
         <div className="row g-4 mt-2">
           {/* Your Card */}
           <div className="col-lg-6">
-            <div className="card dashboard-card">
+            <div className="card glass-card dashboard-card">
               <div className="card-body">
                 <h4 className="mb-1">Your Card</h4>
                 <p className="card-section-sub mb-3">Stay ahead of your payments</p>
 
                 {/* Payment Cards Stack */}
                 <div className="payment-cards-stack mb-3">
-                  <div className="payment-card payment-card--purple">
+                  <div className="payment-card payment-card--navy">
                     <div className="payment-card__left">
                       <div className="mastercard-logo">
                         <span className="mc-dot mc-dot--red"></span>
@@ -249,7 +252,7 @@ const Home = () => {
                     </div>
                   </div>
 
-                  <div className="payment-card payment-card--dark">
+                  <div className="payment-card payment-card--green">
                     <div className="payment-card__left">
                       <div className="mastercard-logo">
                         <span className="mc-dot mc-dot--red"></span>
@@ -266,7 +269,7 @@ const Home = () => {
                 </div>
 
                 {/* Add Card Button */}
-                <button type="button" className="btn-theme btn-theme--outline btn-theme--block btn-theme--dashed">
+                <button type="button" className="btn btn-secondary w-100 text-nav border-dashed">
                   <span className="add-card-btn__icon">+</span>
                   Add Card
                 </button>
@@ -276,14 +279,14 @@ const Home = () => {
 
           {/* Upcoming Bills */}
           <div className="col-lg-6">
-            <div className="card dashboard-card h-100">
+            <div className="card glass-card dashboard-card h-100">
               <div className="card-body">
                 <div className="bills-header mb-1">
                   <div>
                     <h4 className="mb-0">Upcoming Bills</h4>
                     <p className="card-section-sub mb-0">Stay ahead of your payments</p>
                   </div>
-                  <button type="button" className="btn-theme btn-theme--outline btn-theme--sm btn-theme--pill">
+                  <button type="button" className="btn btn-secondary btn-sm text-nav">
                     🔔 Reminders
                   </button>
                 </div>
@@ -329,9 +332,9 @@ const Home = () => {
             <div className="row">
               <div className="col-md-4">
                 <h5 className="fw-bold">
-                  <BrandName />
+                  <BrandName logoSize="md" />
                 </h5>
-                <p className="text-theme-muted">
+                <p className="text-body-secondary">
                   Private, AI-powered budgeting that keeps your financial data
                   secure.
                 </p>
@@ -358,7 +361,7 @@ const Home = () => {
 
             <hr />
 
-            <p className="text-center text-theme-muted mb-0">
+            <p className="text-center text-body-secondary mb-0">
               © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
             </p>
           </div>
