@@ -249,13 +249,16 @@ const Landing = () => {
       });
     } catch (err) {
       if (err instanceof ApiError) {
-        if (Object.keys(err.fieldErrors).length > 0) {
+        const hasFieldErrors = Object.keys(err.fieldErrors).length > 0;
+        if (hasFieldErrors) {
+          // Show under the field only — do not also show the form banner.
           setFieldErrors((prev) => ({
             ...prev,
             ...err.fieldErrors,
           }));
+        } else {
+          setError(err.message);
         }
-        setError(err.message);
       } else {
         setError("Something went wrong. Please try again.");
       }

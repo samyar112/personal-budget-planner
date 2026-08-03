@@ -30,6 +30,8 @@ public sealed class AuthWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:Issuer"] = "VaultBudget",
                 ["Jwt:Audience"] = "VaultBudget",
                 ["Jwt:ExpiresMinutes"] = "60",
+                ["Jwt:RefreshExpiresDays"] = "7",
+                ["Jwt:RefreshGraceSeconds"] = "20",
             });
         });
 

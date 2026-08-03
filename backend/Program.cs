@@ -25,6 +25,7 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services.AddSingleton<TokenProvider>();
+builder.Services.AddScoped<RefreshTokenService>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

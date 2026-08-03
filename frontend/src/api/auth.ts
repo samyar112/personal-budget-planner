@@ -100,6 +100,61 @@ function throwApiError(response: Response, body: unknown): never {
   throw new ApiError("Something went wrong. Please try again.", response.status);
 }
 
+/** In-tab single-flight: concurrent 401s share one refresh call. */
+let refreshInFlight: Promise<boolean> | null = null;
+
+function shouldAttemptRefresh(path: string): boolean {
+  return (
+    !path.includes("/api/auth/login") &&
+    !path.includes("/api/auth/register") &&
+    !path.includes("/api/auth/refresh") &&
+    !path.includes("/api/auth/logout")
+  );
+}
+
+async function refreshSession(): Promise<boolean> {
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
+  refreshInFlight = (async () => {
+    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+    return response.ok;
+  })().finally(() => {
+    refreshInFlight = null;
+  });
+
+  return refreshInFlight;
+}
+
+/**
+ * Authenticated fetch with credentials and a single in-flight refresh retry on 401.
+ */
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  const response = await fetch(url, {
+    ...init,
+    credentials: "include",
+  });
+
+  if (response.status !== 401 || !shouldAttemptRefresh(path)) {
+    return response;
+  }
+
+  const refreshed = await refreshSession();
+  if (!refreshed) {
+    return response;
+  }
+
+  return fetch(url, {
+    ...init,
+    credentials: "include",
+  });
+}
+
 /** Registers a new email/password account. */
 export async function registerUser(payload: RegisterPayload): Promise<RegisterResult> {
   const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
@@ -118,7 +173,7 @@ export async function registerUser(payload: RegisterPayload): Promise<RegisterRe
   throwApiError(response, await parseErrorBody(response));
 }
 
-/** Logs in with email/password. JWT is set as an HttpOnly cookie by the API. */
+/** Logs in with email/password. Access JWT + opaque refresh are set as HttpOnly cookies. */
 export async function loginUser(payload: LoginPayload): Promise<LoginResult> {
   const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: "POST",
@@ -136,7 +191,7 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResult> {
   throwApiError(response, await parseErrorBody(response));
 }
 
-/** Clears the HttpOnly access-token cookie. */
+/** Clears auth cookies and revokes the refresh token server-side. */
 export async function logoutUser(): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
     method: "POST",
@@ -150,11 +205,9 @@ export async function logoutUser(): Promise<void> {
   throwApiError(response, await parseErrorBody(response));
 }
 
-/** Fetches the current user using the HttpOnly cookie session. */
+/** Fetches the current user; refreshes the session once on 401 when possible. */
 export async function fetchCurrentUser(): Promise<MeResult> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-    credentials: "include",
-  });
+  const response = await apiFetch("/api/auth/me");
 
   if (response.ok) {
     return (await response.json()) as MeResult;
