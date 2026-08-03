@@ -1,8 +1,19 @@
 import BrandLogo from "./BrandLogo";
 
 export const BRAND_NAME = "VaultBudget AI";
-export const AUTH_STORAGE_KEY = "vaultbudget-auth";
+/** UX-only cache (display name). Not used for API authorization. */
 export const AUTH_USER_STORAGE_KEY = "vaultbudget-user";
+/** Temporary Google stub flag until backend OAuth + cookie login exists. */
+export const AUTH_GOOGLE_STUB_KEY = "vaultbudget-google-stub";
+
+/** Clears client-side cached profile / Google stub flag. */
+export const clearAuthSession = () => {
+  localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  localStorage.removeItem(AUTH_GOOGLE_STUB_KEY);
+  // Remove legacy keys from earlier JWT-in-localStorage work.
+  localStorage.removeItem("vaultbudget-auth");
+  localStorage.removeItem("vaultbudget-token");
+};
 
 type BrandNameProps = {
   className?: string;
