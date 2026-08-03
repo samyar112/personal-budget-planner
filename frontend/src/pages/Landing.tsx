@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import BrandName, {
-  AUTH_STORAGE_KEY,
+  AUTH_GOOGLE_STUB_KEY,
   AUTH_USER_STORAGE_KEY,
   BRAND_NAME,
 } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import { ApiError, registerUser } from "../api/auth";
+import { ApiError, loginUser, registerUser } from "../api/auth";
 import "./Landing.css";
 
 type FormState = {
@@ -97,7 +97,7 @@ const features = [
 
 /**
  * Public landing page: marketing hero + auth card (login / sign up).
- * Sign up calls POST /api/auth/register; login JWT wiring comes later.
+ * Sign up → POST /api/auth/register; login → POST /api/auth/login (HttpOnly JWT cookie).
  */
 const Landing = () => {
   const navigate = useNavigate();
@@ -187,12 +187,16 @@ const Landing = () => {
     return isValid;
   };
 
-  /** Persists a temporary auth flag/user and navigates to the dashboard. */
-  const completeSignIn = (user?: { name: string; email: string; picture?: string; provider: "email" | "google" }) => {
-    localStorage.setItem(AUTH_STORAGE_KEY, "true");
+  /** Caches display profile and navigates to the dashboard. JWT lives in HttpOnly cookie. */
+  const completeSignIn = (
+    user: { name: string; email: string; picture?: string; provider: "email" | "google" },
+  ) => {
+    localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
 
-    if (user) {
-      localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+    if (user.provider === "google") {
+      localStorage.setItem(AUTH_GOOGLE_STUB_KEY, "true");
+    } else {
+      localStorage.removeItem(AUTH_GOOGLE_STUB_KEY);
     }
 
     navigate("/home");
@@ -208,7 +212,7 @@ const Landing = () => {
 
   /**
    * Submits login/sign-up after validation.
-   * Sign up hits the register API; login remains a temporary client stub until JWT work.
+   * Sign up → register API; login → login API (sets HttpOnly cookie).
    */
   const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
@@ -233,11 +237,14 @@ const Landing = () => {
         return;
       }
 
-      // Temporary until Issue #5 / #10 (login + JWT)
-      await new Promise((res) => setTimeout(res, 800));
+      const result = await loginUser({
+        email: form.email.trim(),
+        password: form.password,
+      });
+
       completeSignIn({
-        name: form.email.split("@")[0],
-        email: form.email,
+        name: result.name,
+        email: result.email,
         provider: "email",
       });
     } catch (err) {

@@ -1,10 +1,22 @@
-import { Link } from "react-router-dom";
-import BrandName, { BRAND_NAME } from "../components/BrandName";
+import { Link, useNavigate } from "react-router-dom";
+import { logoutUser } from "../api/auth";
+import BrandName, { BRAND_NAME, clearAuthSession } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import "./Home.css";
 
 const Home = () => {
+  const navigate = useNavigate();
   const financialScore = 84;
+
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch {
+      // Still clear client state if the network call fails.
+    }
+    clearAuthSession();
+    navigate("/");
+  };
 
   return (
     <div className="home-page">
@@ -45,9 +57,13 @@ const Home = () => {
               </li>
 
               <li className="nav-item">
-                <Link className="btn btn-secondary btn-sm text-nav" to="/">
-                  Login
-                </Link>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm text-nav"
+                  onClick={handleLogout}
+                >
+                  Log out
+                </button>
               </li>
             </ul>
           </div>
