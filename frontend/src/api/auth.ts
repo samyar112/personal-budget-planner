@@ -14,6 +14,23 @@ export type RegisterResult = {
   name: string;
 };
 
+export type LoginPayload = {
+  email: string;
+  password: string;
+};
+
+export type LoginResult = {
+  expiresAt: string;
+  email: string;
+  name: string;
+};
+
+export type MeResult = {
+  id: string;
+  email: string;
+  name: string;
+};
+
 export type ApiFieldErrors = Partial<
   Record<"firstName" | "lastName" | "email" | "password", string>
 >;
@@ -30,25 +47,24 @@ export class ApiError extends Error {
   }
 }
 
-/** Registers a new email/password account. */
-export async function registerUser(payload: RegisterPayload): Promise<RegisterResult> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (response.ok) {
-    return (await response.json()) as RegisterResult;
-  }
-
-  let body: unknown = null;
+async function parseErrorBody(response: Response): Promise<unknown> {
   try {
-    body = await response.json();
+    return await response.json();
   } catch {
-    // Ignore empty/non-JSON error bodies.
+    return null;
+  }
+}
+
+function throwApiError(response: Response, body: unknown): never {
+  if (response.status === 401) {
+    const message =
+      typeof body === "object" &&
+      body !== null &&
+      "message" in body &&
+      typeof (body as { message: unknown }).message === "string"
+        ? (body as { message: string }).message
+        : "Invalid email or password.";
+    throw new ApiError(message, response.status);
   }
 
   if (response.status === 409) {
@@ -82,4 +98,67 @@ export async function registerUser(payload: RegisterPayload): Promise<RegisterRe
   }
 
   throw new ApiError("Something went wrong. Please try again.", response.status);
+}
+
+/** Registers a new email/password account. */
+export async function registerUser(payload: RegisterPayload): Promise<RegisterResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as RegisterResult;
+  }
+
+  throwApiError(response, await parseErrorBody(response));
+}
+
+/** Logs in with email/password. JWT is set as an HttpOnly cookie by the API. */
+export async function loginUser(payload: LoginPayload): Promise<LoginResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as LoginResult;
+  }
+
+  throwApiError(response, await parseErrorBody(response));
+}
+
+/** Clears the HttpOnly access-token cookie. */
+export async function logoutUser(): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (response.ok || response.status === 204) {
+    return;
+  }
+
+  throwApiError(response, await parseErrorBody(response));
+}
+
+/** Fetches the current user using the HttpOnly cookie session. */
+export async function fetchCurrentUser(): Promise<MeResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+    credentials: "include",
+  });
+
+  if (response.ok) {
+    return (await response.json()) as MeResult;
+  }
+
+  throwApiError(response, await parseErrorBody(response));
 }

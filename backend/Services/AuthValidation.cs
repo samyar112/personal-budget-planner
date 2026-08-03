@@ -30,14 +30,7 @@ public static partial class AuthValidation
             errors["lastName"] = lastNameError;
         }
 
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            errors["email"] = "Email is required.";
-        }
-        else if (!EmailPattern.IsMatch(email.Trim()))
-        {
-            errors["email"] = "Please enter a valid email address.";
-        }
+        AddEmailErrors(email, errors);
 
         if (string.IsNullOrEmpty(password))
         {
@@ -49,6 +42,34 @@ public static partial class AuthValidation
         }
 
         return errors;
+    }
+
+    /// <summary>
+    /// Login only needs present/format checks; credential matching happens in the controller.
+    /// </summary>
+    public static Dictionary<string, string> ValidateLogin(string email, string password)
+    {
+        var errors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        AddEmailErrors(email, errors);
+
+        if (string.IsNullOrEmpty(password))
+        {
+            errors["password"] = "Password is required.";
+        }
+
+        return errors;
+    }
+
+    private static void AddEmailErrors(string email, Dictionary<string, string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            errors["email"] = "Email is required.";
+        }
+        else if (!EmailPattern.IsMatch(email.Trim()))
+        {
+            errors["email"] = "Please enter a valid email address.";
+        }
     }
 
     public static bool IsPasswordValid(string password) =>

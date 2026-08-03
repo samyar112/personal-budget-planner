@@ -6,6 +6,12 @@
     }
   },
   "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=vaultBudget;Username=YOUR_USERNAME;Password=YOUR_PASSWORD"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=vaultBudget;Username=YOUR_USER;Password=YOUR_PASSWORD"
+  },
+  "Jwt": {
+    "Key": "REPLACE_WITH_openssl_rand_-base64_48_OUTPUT",
+    "Issuer": "VaultBudget",
+    "Audience": "VaultBudget",
+    "ExpiresMinutes": 60
   }
 }
