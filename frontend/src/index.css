@@ -1,1 +1,249 @@
-/* App-level overrides — theme and global styles live in styles/common.css */
+/* Bootstrap component overrides — loads after bootstrap.min.css */
+
+/* Bootstrap bridge — must come after bootstrap.min.css or it gets reset to blue */
+:root {
+  --bs-primary: var(--primary);
+  --bs-primary-rgb: 230, 126, 34;
+  --bs-secondary: var(--secondary);
+  --bs-secondary-rgb: 234, 236, 238;
+  --bs-secondary-color: var(--muted-foreground);
+  --bs-success: var(--accent);
+  --bs-success-rgb: 30, 96, 67;
+  --bs-danger: var(--destructive);
+  --bs-danger-rgb: 192, 57, 43;
+  --bs-body-bg: var(--background);
+  --bs-body-color: var(--foreground);
+  --bs-emphasis-color: var(--foreground);
+  --bs-font-sans-serif: "DM Sans", system-ui, sans-serif;
+  --bs-link-color: var(--primary);
+  --bs-link-color-rgb: 230, 126, 34;
+  --bs-link-hover-color: #cf6d12;
+  --bs-border-radius: 10px;
+  --bs-border-radius-sm: 10px;
+  --bs-border-radius-lg: 10px;
+  --bs-btn-border-radius: 10px;
+  --bs-btn-font-weight: 600;
+  --bs-focus-ring-color: rgba(230, 126, 34, 0.25);
+  --bs-focus-ring-opacity: 1;
+}
+
+a {
+  color: var(--primary);
+}
+
+a:hover {
+  color: #cf6d12;
+}
+
+.text-primary {
+  color: var(--primary) !important;
+}
+
+/* Buttons: solid fills, opacity-only hover (Brand Kit) */
+.btn {
+  font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+
+.btn:hover,
+.btn:focus-visible {
+  opacity: 0.9;
+}
+
+.btn-primary {
+  --bs-btn-color: var(--primary-foreground);
+  --bs-btn-bg: var(--primary);
+  --bs-btn-border-color: var(--primary);
+  --bs-btn-hover-color: var(--primary-foreground);
+  --bs-btn-hover-bg: var(--primary);
+  --bs-btn-hover-border-color: var(--primary);
+  --bs-btn-active-color: var(--primary-foreground);
+  --bs-btn-active-bg: var(--primary);
+  --bs-btn-active-border-color: var(--primary);
+  --bs-btn-disabled-color: var(--primary-foreground);
+  --bs-btn-disabled-bg: var(--primary);
+  --bs-btn-disabled-border-color: var(--primary);
+}
+
+.btn-secondary {
+  --bs-btn-color: var(--secondary-foreground);
+  --bs-btn-bg: var(--secondary);
+  --bs-btn-border-color: var(--secondary);
+  --bs-btn-hover-color: var(--secondary-foreground);
+  --bs-btn-hover-bg: var(--secondary);
+  --bs-btn-hover-border-color: var(--secondary);
+  --bs-btn-active-color: var(--secondary-foreground);
+  --bs-btn-active-bg: var(--secondary);
+  --bs-btn-active-border-color: var(--secondary);
+  --bs-btn-disabled-color: var(--secondary-foreground);
+  --bs-btn-disabled-bg: var(--secondary);
+  --bs-btn-disabled-border-color: var(--secondary);
+}
+
+.btn-success {
+  --bs-btn-color: var(--accent-foreground);
+  --bs-btn-bg: var(--accent);
+  --bs-btn-border-color: var(--accent);
+  --bs-btn-hover-color: var(--accent-foreground);
+  --bs-btn-hover-bg: var(--accent);
+  --bs-btn-hover-border-color: var(--accent);
+  --bs-btn-active-color: var(--accent-foreground);
+  --bs-btn-active-bg: var(--accent);
+  --bs-btn-active-border-color: var(--accent);
+  --bs-btn-disabled-color: var(--accent-foreground);
+  --bs-btn-disabled-bg: var(--accent);
+  --bs-btn-disabled-border-color: var(--accent);
+}
+
+.btn-danger {
+  --bs-btn-color: var(--destructive-foreground);
+  --bs-btn-bg: var(--destructive);
+  --bs-btn-border-color: var(--destructive);
+  --bs-btn-hover-color: var(--destructive-foreground);
+  --bs-btn-hover-bg: var(--destructive);
+  --bs-btn-hover-border-color: var(--destructive);
+  --bs-btn-active-color: var(--destructive-foreground);
+  --bs-btn-active-bg: var(--destructive);
+  --bs-btn-active-border-color: var(--destructive);
+  --bs-btn-disabled-color: var(--destructive-foreground);
+  --bs-btn-disabled-bg: var(--destructive);
+  --bs-btn-disabled-border-color: var(--destructive);
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-success:hover,
+.btn-danger:hover {
+  box-shadow: none;
+  filter: none;
+}
+
+/* Forms */
+.form-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--foreground);
+  margin-bottom: 6px;
+}
+
+.form-control {
+  border-radius: 10px;
+  border-color: var(--secondary);
+  color: var(--foreground);
+  font-size: 14px;
+  padding: 11px 14px;
+}
+
+.form-control:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-muted);
+  color: var(--foreground);
+}
+
+.form-control::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+.btn-link {
+  --bs-btn-color: var(--primary);
+  --bs-btn-hover-color: #cf6d12;
+  --bs-btn-active-color: #cf6d12;
+  transition: opacity 0.15s ease;
+}
+
+.btn-link:hover {
+  opacity: 0.9;
+}
+
+.navbar-toggler:focus {
+  box-shadow: 0 0 0 3px var(--primary-muted);
+}
+
+/* Nav */
+.navbar-nav .nav-link {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link:focus {
+  color: var(--foreground);
+}
+
+.navbar-brand {
+  color: var(--foreground);
+}
+
+.navbar-brand .brand-name--inline {
+  gap: 8px;
+}
+
+.navbar-brand .brand-logo {
+  height: 32px !important;
+}
+
+/* Auth pill tabs */
+.auth-pills {
+  background: var(--secondary);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.auth-pills .nav-link {
+  border-radius: 10px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px;
+}
+
+.auth-pills .nav-link.active {
+  background: #ffffff;
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(28, 40, 51, 0.08);
+}
+
+.btn-google {
+  --bs-btn-color: var(--foreground);
+  --bs-btn-bg: #ffffff;
+  --bs-btn-border-color: var(--secondary);
+  --bs-btn-hover-color: var(--foreground);
+  --bs-btn-hover-bg: #ffffff;
+  --bs-btn-hover-border-color: color-mix(in srgb, var(--foreground) 18%, var(--secondary));
+  --bs-btn-active-color: var(--foreground);
+  --bs-btn-active-bg: #ffffff;
+  --bs-btn-active-border-color: color-mix(in srgb, var(--foreground) 18%, var(--secondary));
+  --bs-btn-disabled-color: var(--muted-foreground);
+  --bs-btn-disabled-bg: #ffffff;
+  --bs-btn-disabled-border-color: var(--secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-width: 1px;
+  box-shadow: 0 1px 2px rgba(28, 40, 51, 0.04);
+}
+
+.btn-google__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Eyebrow badge */
+.badge-eyebrow {
+  background: var(--accent-muted);
+  border: 1px solid var(--accent-soft);
+  color: var(--accent);
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}

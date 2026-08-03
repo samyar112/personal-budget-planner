@@ -1,0 +1,44 @@
+# OS
+.DS_Store
+~$*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+
+# Agent skills (keep local-only; do not push)
+.agents/
+.cursor/skills/
+.claude/skills/
+.codex/skills/
+skills-lock.json
+
+# Secrets / local config
+.env
+.env.*
+!**/.env.example
+frontend/.env
+backend/appsettings.Development.json
+backend/appsettings.*.local.json
+
+# Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+logs/
+
+# Backend
+backend/bin/
+backend/obj/
+backend/migrate.sql
+**/bin/
+**/obj/
