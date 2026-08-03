@@ -7,14 +7,61 @@ import BrandName, {
 } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import { ApiError, registerUser } from "../api/auth";
 import "./Landing.css";
 
 type FormState = {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
 };
 
+/** Returns which password policy rules the current value satisfies (for the live checklist). */
+const getPasswordChecks = (password: string) => ({
+  minLength: password.length >= 8,
+  hasUpper: /[A-Z]/.test(password),
+  hasLower: /[a-z]/.test(password),
+  hasNumber: /\d/.test(password),
+  hasSpecial: /[^A-Za-z0-9]/.test(password),
+});
+
+/** Letters (incl. accents); spaces, hyphens, and apostrophes allowed between name parts. */
+const NAME_PATTERN = /^[\p{L}]+(?:[ '\-][\p{L}]+)*$/u;
+
+/** Validates a name field and returns an inline error message, or "" if valid. */
+const getNameError = (value: string, label: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return `${label} is required.`;
+  if (trimmed.length > 50) return `${label} must be 50 characters or less.`;
+  if (!NAME_PATTERN.test(trimmed)) {
+    return `Enter a valid ${label.toLowerCase()}.`;
+  }
+  return "";
+};
+
+const emptyForm: FormState = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+};
+
+type FieldErrors = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+};
+
+const emptyFieldErrors: FieldErrors = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+};
+
+/** Static marketing feature cards shown below the hero. */
 const features = [
   {
     icon: "🔒",
@@ -48,52 +95,99 @@ const features = [
   },
 ];
 
+/**
+ * Public landing page: marketing hero + auth card (login / sign up).
+ * Sign up calls POST /api/auth/register; login JWT wiring comes later.
+ */
 const Landing = () => {
   const navigate = useNavigate();
 
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>("");
+  const [successMessage, setSuccessMessage] = useState<string>("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>(emptyFieldErrors);
   const isAuthBusy = loading || googleLoading;
 
-  const [form, setForm] = useState<FormState>({
-    name: "",
-    email: "",
-    password: "",
-  });
+  const [form, setForm] = useState<FormState>(emptyForm);
 
+  const passwordChecks = getPasswordChecks(form.password);
+  const isPasswordValid = Object.values(passwordChecks).every(Boolean);
+
+  /** Clears all per-field validation messages. */
+  const clearFieldErrors = () => setFieldErrors(emptyFieldErrors);
+
+  /** Switches Login ↔ Sign Up and resets form, password visibility, and errors. */
+  const switchAuthMode = (nextIsLogin: boolean, options?: { preserveSuccess?: boolean }) => {
+    setIsLogin(nextIsLogin);
+    setForm(emptyForm);
+    setShowPassword(false);
+    setError("");
+    if (!options?.preserveSuccess) {
+      setSuccessMessage("");
+    }
+    clearFieldErrors();
+  };
+
+  /** Updates a form field and clears that field's error as the user types. */
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setForm((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
+
+    if (name in fieldErrors && fieldErrors[name as keyof FieldErrors]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
+  /**
+   * Runs client-side auth validation.
+   * Puts errors under each field; returns true only when the form can submit.
+   */
   const validate = () => {
-    if (!form.email || !form.password) {
-      setError("Email and password are required.");
-      return false;
+    setError("");
+    const nextErrors: FieldErrors = { ...emptyFieldErrors };
+    let isValid = true;
+
+    if (!isLogin) {
+      const firstNameError = getNameError(form.firstName, "First name");
+      const lastNameError = getNameError(form.lastName, "Last name");
+
+      if (firstNameError) {
+        nextErrors.firstName = firstNameError;
+        isValid = false;
+      }
+      if (lastNameError) {
+        nextErrors.lastName = lastNameError;
+        isValid = false;
+      }
     }
 
-    if (!/\S+@\S+\.\S+/.test(form.email)) {
-      setError("Please enter a valid email address.");
-      return false;
+    if (!form.email.trim()) {
+      nextErrors.email = "Email is required.";
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+      nextErrors.email = "Please enter a valid email address.";
+      isValid = false;
     }
 
-    if (!isLogin && !form.name.trim()) {
-      setError("Please enter your full name.");
-      return false;
+    if (!form.password) {
+      nextErrors.password = "Password is required.";
+      isValid = false;
+    } else if (!isLogin && !isPasswordValid) {
+      nextErrors.password = "Password does not meet all requirements.";
+      isValid = false;
     }
 
-    if (!isLogin && form.password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return false;
-    }
-
-    return true;
+    setFieldErrors(nextErrors);
+    return isValid;
   };
 
+  /** Persists a temporary auth flag/user and navigates to the dashboard. */
   const completeSignIn = (user?: { name: string; email: string; picture?: string; provider: "email" | "google" }) => {
     localStorage.setItem(AUTH_STORAGE_KEY, "true");
 
@@ -104,29 +198,60 @@ const Landing = () => {
     navigate("/home");
   };
 
+  /** Handles a successful Google profile fetch from the Google sign-in button. */
   const handleGoogleSignIn = (user: { name: string; email: string; picture?: string }) => {
     setError("");
+    setSuccessMessage("");
+    clearFieldErrors();
     completeSignIn({ ...user, provider: "google" });
   };
 
+  /**
+   * Submits login/sign-up after validation.
+   * Sign up hits the register API; login remains a temporary client stub until JWT work.
+   */
   const handleSubmit: React.FormEventHandler<HTMLFormElement> = async (e) => {
     e.preventDefault();
-    setError("");
+    setSuccessMessage("");
 
     if (!validate()) return;
 
     setLoading(true);
+    setError("");
 
     try {
-      await new Promise((res) => setTimeout(res, 800));
+      if (!isLogin) {
+        await registerUser({
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          email: form.email.trim(),
+          password: form.password,
+        });
 
+        switchAuthMode(true, { preserveSuccess: true });
+        setSuccessMessage("Account created. Please log in.");
+        return;
+      }
+
+      // Temporary until Issue #5 / #10 (login + JWT)
+      await new Promise((res) => setTimeout(res, 800));
       completeSignIn({
-        name: form.name.trim() || form.email.split("@")[0],
+        name: form.email.split("@")[0],
         email: form.email,
         provider: "email",
       });
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (Object.keys(err.fieldErrors).length > 0) {
+          setFieldErrors((prev) => ({
+            ...prev,
+            ...err.fieldErrors,
+          }));
+        }
+        setError(err.message);
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -228,10 +353,7 @@ const Landing = () => {
                       className={`nav-link w-100 ${isLogin ? "active" : ""}`}
                       role="tab"
                       aria-selected={isLogin}
-                      onClick={() => {
-                        setIsLogin(true);
-                        setError("");
-                      }}
+                      onClick={() => switchAuthMode(true)}
                     >
                       Login
                     </button>
@@ -242,31 +364,56 @@ const Landing = () => {
                       className={`nav-link w-100 ${!isLogin ? "active" : ""}`}
                       role="tab"
                       aria-selected={!isLogin}
-                      onClick={() => {
-                        setIsLogin(false);
-                        setError("");
-                      }}
+                      onClick={() => switchAuthMode(false)}
                     >
                       Sign Up
                     </button>
                   </li>
                 </ul>
 
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} noValidate>
                   {!isLogin && (
-                    <div className="mb-3">
-                      <label htmlFor="name" className="form-label">
-                        Full Name
-                      </label>
-                      <input
-                        id="name"
-                        name="name"
-                        type="text"
-                        className="form-control"
-                        placeholder="Jane Smith"
-                        value={form.name}
-                        onChange={handleChange}
-                      />
+                    <div className="row g-2 mb-3">
+                      <div className="col-6">
+                        <label htmlFor="firstName" className="form-label">
+                          First Name
+                        </label>
+                        <input
+                          id="firstName"
+                          name="firstName"
+                          type="text"
+                          className={`form-control${fieldErrors.firstName ? " is-invalid" : ""}`}
+                          placeholder="Jane"
+                          autoComplete="given-name"
+                          maxLength={50}
+                          aria-invalid={Boolean(fieldErrors.firstName)}
+                          value={form.firstName}
+                          onChange={handleChange}
+                        />
+                        {fieldErrors.firstName && (
+                          <div className="field-error">{fieldErrors.firstName}</div>
+                        )}
+                      </div>
+                      <div className="col-6">
+                        <label htmlFor="lastName" className="form-label">
+                          Last Name
+                        </label>
+                        <input
+                          id="lastName"
+                          name="lastName"
+                          type="text"
+                          className={`form-control${fieldErrors.lastName ? " is-invalid" : ""}`}
+                          placeholder="Smith"
+                          autoComplete="family-name"
+                          maxLength={50}
+                          aria-invalid={Boolean(fieldErrors.lastName)}
+                          value={form.lastName}
+                          onChange={handleChange}
+                        />
+                        {fieldErrors.lastName && (
+                          <div className="field-error">{fieldErrors.lastName}</div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -278,27 +425,77 @@ const Landing = () => {
                       id="email"
                       name="email"
                       type="email"
-                      className="form-control"
+                      className={`form-control${fieldErrors.email ? " is-invalid" : ""}`}
                       placeholder="you@example.com"
+                      autoComplete="email"
+                      aria-invalid={Boolean(fieldErrors.email)}
+                      aria-describedby={fieldErrors.email ? "email-error" : undefined}
                       value={form.email}
                       onChange={handleChange}
                     />
+                    {fieldErrors.email && (
+                      <div id="email-error" className="field-error">
+                        {fieldErrors.email}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mb-3">
                     <label htmlFor="password" className="form-label">
                       Password
                     </label>
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      className="form-control"
-                      placeholder="••••••••"
-                      value={form.password}
-                      onChange={handleChange}
-                    />
+                    <div className="password-field">
+                      <input
+                        id="password"
+                        name="password"
+                        type={showPassword ? "text" : "password"}
+                        className={`form-control${fieldErrors.password ? " is-invalid" : ""}`}
+                        placeholder="••••••••"
+                        autoComplete={isLogin ? "current-password" : "new-password"}
+                        aria-invalid={Boolean(fieldErrors.password)}
+                        value={form.password}
+                        onChange={handleChange}
+                      />
+                      <button
+                        type="button"
+                        className="password-field__toggle"
+                        onClick={() => setShowPassword((visible) => !visible)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
+
+                    {fieldErrors.password && (
+                      <div className="field-error">{fieldErrors.password}</div>
+                    )}
+
+                    {!isLogin && (
+                      <ul className="password-checklist" aria-live="polite">
+                        <li className={passwordChecks.minLength ? "is-met" : ""}>
+                          At least 8 characters
+                        </li>
+                        <li className={passwordChecks.hasUpper ? "is-met" : ""}>
+                          One uppercase letter
+                        </li>
+                        <li className={passwordChecks.hasLower ? "is-met" : ""}>
+                          One lowercase letter
+                        </li>
+                        <li className={passwordChecks.hasNumber ? "is-met" : ""}>
+                          One number
+                        </li>
+                        <li className={passwordChecks.hasSpecial ? "is-met" : ""}>
+                          One special character
+                        </li>
+                      </ul>
+                    )}
                   </div>
+
+                  {successMessage && (
+                    <div className="alert alert-success py-2 mb-3" role="status">
+                      {successMessage}
+                    </div>
+                  )}
 
                   {error && (
                     <div className="alert alert-danger py-2 mb-3" role="alert">
@@ -334,6 +531,8 @@ const Landing = () => {
                     disabled={isAuthBusy}
                     onStart={() => {
                       setError("");
+                      setSuccessMessage("");
+                      clearFieldErrors();
                       setGoogleLoading(true);
                     }}
                     onSuccess={(user) => {
@@ -359,10 +558,7 @@ const Landing = () => {
                     <button
                       type="button"
                       className="btn btn-link p-0 align-baseline text-nav text-primary text-decoration-none"
-                      onClick={() => {
-                        setIsLogin(!isLogin);
-                        setError("");
-                      }}
+                      onClick={() => switchAuthMode(!isLogin)}
                     >
                       {isLogin ? "Sign up" : "Login"}
                     </button>

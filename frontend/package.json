@@ -4,9 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "predev": "brew services start postgresql@16",
     "dev": "vite",
-    "postdev": "brew services stop postgresql@16",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

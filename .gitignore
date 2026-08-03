@@ -7,6 +7,13 @@
 !.vscode/extensions.json
 .idea
 
+# Agent skills (keep local-only; do not push)
+.agents/
+.cursor/skills/
+.claude/skills/
+.codex/skills/
+skills-lock.json
+
 # Secrets / local config
 .env
 .env.*
