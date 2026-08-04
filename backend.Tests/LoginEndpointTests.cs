@@ -6,6 +6,15 @@ using backend.Services;
 
 namespace backend.Tests;
 
+/*
+ * Test cases:
+ * 1. Valid login sets HttpOnly access and refresh cookies.
+ * 2. Wrong password returns unauthorized.
+ * 3. Unknown email returns unauthorized.
+ * 4. /me without a cookie returns unauthorized.
+ * 5. /me with a login cookie returns the current user.
+ * 6. Logout clears cookies and /me becomes unauthorized.
+ */
 public sealed class LoginEndpointTests : IClassFixture<AuthWebApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -41,8 +50,9 @@ public sealed class LoginEndpointTests : IClassFixture<AuthWebApplicationFactory
         Assert.True(body.ExpiresAt > DateTime.UtcNow);
 
         Assert.True(response.Headers.TryGetValues("Set-Cookie", out var cookies));
-        var setCookie = Assert.Single(cookies);
+        var setCookie = string.Join("\n", cookies);
         Assert.Contains($"{AuthCookie.AccessTokenName}=", setCookie);
+        Assert.Contains($"{AuthCookie.RefreshTokenName}=", setCookie);
         Assert.Contains("httponly", setCookie, StringComparison.OrdinalIgnoreCase);
         // Development tests: Secure flag should be off.
         Assert.DoesNotContain("secure", setCookie, StringComparison.OrdinalIgnoreCase);

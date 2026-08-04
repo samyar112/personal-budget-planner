@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import BrandName, {
   AUTH_GOOGLE_STUB_KEY,
@@ -9,6 +9,9 @@ import AmbientBackground from "../components/AmbientBackground";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { ApiError, loginUser, registerUser } from "../api/auth";
 import "./Landing.css";
+
+/** Matches AuthSecurity:LoginWindowSeconds so the UI stops calling /login after 429. */
+const LOGIN_RATE_LIMIT_COOLDOWN_MS = 60_000;
 
 type FormState = {
   firstName: string;
@@ -109,12 +112,32 @@ const Landing = () => {
   const [error, setError] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>(emptyFieldErrors);
-  const isAuthBusy = loading || googleLoading;
+  /** Client-side pause after HTTP 429 so we stop hammering /login during the rate-limit window. */
+  const [loginCooldownUntil, setLoginCooldownUntil] = useState<number | null>(null);
+  const isLoginCoolingDown =
+    isLogin && loginCooldownUntil !== null && Date.now() < loginCooldownUntil;
+  const isAuthBusy = loading || googleLoading || isLoginCoolingDown;
 
   const [form, setForm] = useState<FormState>(emptyForm);
 
   const passwordChecks = getPasswordChecks(form.password);
   const isPasswordValid = Object.values(passwordChecks).every(Boolean);
+
+  useEffect(() => {
+    if (loginCooldownUntil === null) return;
+
+    const remainingMs = loginCooldownUntil - Date.now();
+    if (remainingMs <= 0) {
+      setLoginCooldownUntil(null);
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setLoginCooldownUntil(null);
+    }, remainingMs);
+
+    return () => window.clearTimeout(timerId);
+  }, [loginCooldownUntil]);
 
   /** Clears all per-field validation messages. */
   const clearFieldErrors = () => setFieldErrors(emptyFieldErrors);
@@ -218,6 +241,13 @@ const Landing = () => {
     e.preventDefault();
     setSuccessMessage("");
 
+    // Prevent double-submit and stop calling the API during a rate-limit cooldown.
+    if (loading || googleLoading) return;
+    if (isLogin && loginCooldownUntil !== null && Date.now() < loginCooldownUntil) {
+      setError("Too many login attempts. Please try again later.");
+      return;
+    }
+
     if (!validate()) return;
 
     setLoading(true);
@@ -249,13 +279,20 @@ const Landing = () => {
       });
     } catch (err) {
       if (err instanceof ApiError) {
-        if (Object.keys(err.fieldErrors).length > 0) {
+        const hasFieldErrors = Object.keys(err.fieldErrors).length > 0;
+        if (hasFieldErrors) {
+          // Show under the field only — do not also show the form banner.
           setFieldErrors((prev) => ({
             ...prev,
             ...err.fieldErrors,
           }));
+        } else {
+          setError(err.message);
         }
-        setError(err.message);
+
+        if (err.status === 429) {
+          setLoginCooldownUntil(Date.now() + LOGIN_RATE_LIMIT_COOLDOWN_MS);
+        }
       } else {
         setError("Something went wrong. Please try again.");
       }
@@ -525,9 +562,11 @@ const Landing = () => {
                   >
                     {loading
                       ? "Processing..."
-                      : isLogin
-                        ? "Login to Dashboard"
-                        : "Create Account"}
+                      : isLoginCoolingDown
+                        ? "Try again shortly"
+                        : isLogin
+                          ? "Login to Dashboard"
+                          : "Create Account"}
                   </button>
 
                   <div className="auth-divider" role="separator" aria-label="or">

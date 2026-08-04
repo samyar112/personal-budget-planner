@@ -10,6 +10,13 @@ using backend.Models;
 
 namespace backend.Tests;
 
+/*
+ * Test cases:
+ * 1. Valid registration creates the user and hashes the password.
+ * 2. Duplicate email returns conflict.
+ * 3. Weak password returns bad request.
+ * 4. Invalid name returns bad request.
+ */
 public sealed class RegisterEndpointTests : IClassFixture<AuthWebApplicationFactory>
 {
     private static readonly JsonSerializerOptions JsonOptions = new()

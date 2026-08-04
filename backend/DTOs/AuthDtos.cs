@@ -16,12 +16,17 @@ public sealed record LoginRequest(
     string Password);
 
 /// <summary>
-/// Login success body. The JWT itself is sent only in an HttpOnly cookie.
+/// Login success body. Tokens are sent only in HttpOnly cookies.
 /// </summary>
 public sealed record LoginResponse(
     DateTime ExpiresAt,
     string Email,
     string Name);
+
+/// <summary>
+/// Refresh success body. New tokens are sent only in HttpOnly cookies.
+/// </summary>
+public sealed record RefreshResponse(DateTime ExpiresAt);
 
 public sealed record MeResponse(
     Guid Id,

@@ -207,7 +207,8 @@ const Home = () => {
                         <span className="card-ending">•••• 202</span>
                     </div>
                     </td>
-                    <td className="text-end amount-positive">+$2,250.00</td>                </tr>
+                    <td className="text-end amount-positive">+$2,250.00</td>
+                </tr>
 
                 <tr>
                     <td>06/17/2026</td>

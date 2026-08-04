@@ -2,12 +2,15 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using backend.Data;
 using backend.DTOs;
+using backend.Extensions;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace backend.Controllers;
 
@@ -17,6 +20,8 @@ public sealed class AuthController(
     AppDbContext db,
     IPasswordHasher<User> passwordHasher,
     TokenProvider tokenProvider,
+    RefreshTokenService refreshTokenService,
+    IOptions<AuthSecurityOptions> authSecurityOptions,
     IHostEnvironment environment) : ControllerBase
 {
     /// <summary>
@@ -68,10 +73,12 @@ public sealed class AuthController(
             $"/api/auth/register/{user.Id}",
             new RegisterResponse(user.Id, user.Email, user.Name));
     }
- 
+
     /// <summary>
-    /// Authenticates with email/password and sets an HttpOnly JWT cookie.
+    /// Authenticates with email/password and sets HttpOnly access + refresh cookies.
+    /// Rate-limited per IP; locks the account after repeated failed attempts.
     /// </summary>
+    [EnableRateLimiting(AuthSecurityExtensions.LoginRateLimitPolicy)]
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(
         [FromBody] LoginRequest request,
@@ -88,6 +95,7 @@ public sealed class AuthController(
             return ValidationProblem(ModelState);
         }
 
+        var security = authSecurityOptions.Value;
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await db.Users.FirstOrDefaultAsync(
             candidate => candidate.Email == email,
@@ -99,6 +107,13 @@ public sealed class AuthController(
             return Unauthorized(new { message = "Invalid email or password." });
         }
 
+        if (AuthSecurityExtensions.IsLockedOut(user, DateTime.UtcNow))
+        {
+            return StatusCode(
+                StatusCodes.Status423Locked,
+                new { message = "Your account is temporarily locked. Please try again later." });
+        }
+
         var verification = passwordHasher.VerifyHashedPassword(
             user,
             user.PasswordHash,
@@ -106,26 +121,79 @@ public sealed class AuthController(
 
         if (verification == PasswordVerificationResult.Failed)
         {
+            AuthSecurityExtensions.RegisterFailedLogin(user, security);
+            await db.SaveChangesAsync(cancellationToken);
+
+            if (AuthSecurityExtensions.IsLockedOut(user, DateTime.UtcNow))
+            {
+                return StatusCode(
+                    StatusCodes.Status423Locked,
+                    new { message = "Your account is temporarily locked. Please try again later." });
+            }
+
             return Unauthorized(new { message = "Invalid email or password." });
         }
 
-        var token = tokenProvider.Create(user);
-        AuthCookie.SetAccessToken(
-            Response,
-            token.AccessToken,
-            token.ExpiresAt,
-            environment.IsDevelopment());
+        AuthSecurityExtensions.ClearLoginFailures(user);
+        await db.SaveChangesAsync(cancellationToken);
 
-        return Ok(new LoginResponse(token.ExpiresAt, user.Email, user.Name));
+        var access = tokenProvider.Create(user);
+        var refresh = await refreshTokenService.IssueAsync(user, cancellationToken);
+        WriteAuthCookies(access, refresh);
+
+        return Ok(new LoginResponse(access.ExpiresAt, user.Email, user.Name));
     }
 
     /// <summary>
-    /// Clears the access-token cookie.
+    /// Exchanges a valid refresh cookie for a new access JWT (and rotates the refresh token).
+    /// </summary>
+    [HttpPost("refresh")]
+    public async Task<ActionResult<RefreshResponse>> Refresh(CancellationToken cancellationToken)
+    {
+        if (!Request.Cookies.TryGetValue(AuthCookie.RefreshTokenName, out var rawRefresh)
+            || string.IsNullOrWhiteSpace(rawRefresh))
+        {
+            return Unauthorized(new { message = "Refresh token is missing or invalid." });
+        }
+
+        var outcome = await refreshTokenService.RefreshAsync(rawRefresh, cancellationToken);
+        if (outcome is null)
+        {
+            AuthCookie.ClearAll(Response, environment.IsDevelopment());
+            return Unauthorized(new { message = "Refresh token is missing or invalid." });
+        }
+
+        AuthCookie.SetAccessToken(
+            Response,
+            outcome.AccessToken.AccessToken,
+            outcome.AccessToken.ExpiresAt,
+            environment.IsDevelopment());
+
+        // Grace-period reuse: access only; refresh cookie already updated by the winning request.
+        if (outcome.NewRefreshToken is { } newRefresh)
+        {
+            AuthCookie.SetRefreshToken(
+                Response,
+                newRefresh.RawToken,
+                newRefresh.ExpiresAt,
+                environment.IsDevelopment());
+        }
+
+        return Ok(new RefreshResponse(outcome.AccessToken.ExpiresAt));
+    }
+
+    /// <summary>
+    /// Revokes the refresh token (when present) and clears auth cookies.
     /// </summary>
     [HttpPost("logout")]
-    public IActionResult Logout()
+    public async Task<IActionResult> Logout(CancellationToken cancellationToken)
     {
-        AuthCookie.ClearAccessToken(Response, environment.IsDevelopment());
+        if (Request.Cookies.TryGetValue(AuthCookie.RefreshTokenName, out var rawRefresh))
+        {
+            await refreshTokenService.RevokeAsync(rawRefresh, cancellationToken);
+        }
+
+        AuthCookie.ClearAll(Response, environment.IsDevelopment());
         return NoContent();
     }
 
@@ -155,5 +223,12 @@ public sealed class AuthController(
         }
 
         return Ok(new MeResponse(user.Id, user.Email, user.Name));
+    }
+
+    private void WriteAuthCookies(TokenResult access, IssuedRefreshToken refresh)
+    {
+        var isDevelopment = environment.IsDevelopment();
+        AuthCookie.SetAccessToken(Response, access.AccessToken, access.ExpiresAt, isDevelopment);
+        AuthCookie.SetRefreshToken(Response, refresh.RawToken, refresh.ExpiresAt, isDevelopment);
     }
 }

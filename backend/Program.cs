@@ -1,4 +1,5 @@
 using System.Text;
+using backend.Extensions;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -15,6 +16,7 @@ builder.Services.AddDbContext<backend.Data.AppDbContext>(options =>
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddAuthSecurity(builder.Configuration);
 
 builder.Services
     .AddOptions<JwtOptions>()
@@ -25,6 +27,7 @@ builder.Services
     .ValidateOnStart();
 
 builder.Services.AddSingleton<TokenProvider>();
+builder.Services.AddScoped<RefreshTokenService>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -89,6 +92,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(frontendCorsPolicy);
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
