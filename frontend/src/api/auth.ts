@@ -56,25 +56,34 @@ async function parseErrorBody(response: Response): Promise<unknown> {
 }
 
 function throwApiError(response: Response, body: unknown): never {
+  const messageFromBody =
+    typeof body === "object" &&
+    body !== null &&
+    "message" in body &&
+    typeof (body as { message: unknown }).message === "string"
+      ? (body as { message: string }).message
+      : null;
+
   if (response.status === 401) {
-    const message =
-      typeof body === "object" &&
-      body !== null &&
-      "message" in body &&
-      typeof (body as { message: unknown }).message === "string"
-        ? (body as { message: string }).message
-        : "Invalid email or password.";
-    throw new ApiError(message, response.status);
+    throw new ApiError(messageFromBody ?? "Invalid email or password.", response.status);
+  }
+
+  if (response.status === 423) {
+    throw new ApiError(
+      messageFromBody ?? "Your account is temporarily locked. Please try again later.",
+      response.status,
+    );
+  }
+
+  if (response.status === 429) {
+    throw new ApiError(
+      messageFromBody ?? "Too many login attempts. Please try again later.",
+      response.status,
+    );
   }
 
   if (response.status === 409) {
-    const message =
-      typeof body === "object" &&
-      body !== null &&
-      "message" in body &&
-      typeof (body as { message: unknown }).message === "string"
-        ? (body as { message: string }).message
-        : "An account with this email already exists.";
+    const message = messageFromBody ?? "An account with this email already exists.";
     throw new ApiError(message, response.status, { email: message });
   }
 

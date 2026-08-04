@@ -2,12 +2,15 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using backend.Data;
 using backend.DTOs;
+using backend.Extensions;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace backend.Controllers;
 
@@ -18,6 +21,7 @@ public sealed class AuthController(
     IPasswordHasher<User> passwordHasher,
     TokenProvider tokenProvider,
     RefreshTokenService refreshTokenService,
+    IOptions<AuthSecurityOptions> authSecurityOptions,
     IHostEnvironment environment) : ControllerBase
 {
     /// <summary>
@@ -72,7 +76,9 @@ public sealed class AuthController(
 
     /// <summary>
     /// Authenticates with email/password and sets HttpOnly access + refresh cookies.
+    /// Rate-limited per IP; locks the account after repeated failed attempts.
     /// </summary>
+    [EnableRateLimiting(AuthSecurityExtensions.LoginRateLimitPolicy)]
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(
         [FromBody] LoginRequest request,
@@ -89,6 +95,7 @@ public sealed class AuthController(
             return ValidationProblem(ModelState);
         }
 
+        var security = authSecurityOptions.Value;
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await db.Users.FirstOrDefaultAsync(
             candidate => candidate.Email == email,
@@ -100,6 +107,13 @@ public sealed class AuthController(
             return Unauthorized(new { message = "Invalid email or password." });
         }
 
+        if (AuthSecurityExtensions.IsLockedOut(user, DateTime.UtcNow))
+        {
+            return StatusCode(
+                StatusCodes.Status423Locked,
+                new { message = "Your account is temporarily locked. Please try again later." });
+        }
+
         var verification = passwordHasher.VerifyHashedPassword(
             user,
             user.PasswordHash,
@@ -107,8 +121,21 @@ public sealed class AuthController(
 
         if (verification == PasswordVerificationResult.Failed)
         {
+            AuthSecurityExtensions.RegisterFailedLogin(user, security);
+            await db.SaveChangesAsync(cancellationToken);
+
+            if (AuthSecurityExtensions.IsLockedOut(user, DateTime.UtcNow))
+            {
+                return StatusCode(
+                    StatusCodes.Status423Locked,
+                    new { message = "Your account is temporarily locked. Please try again later." });
+            }
+
             return Unauthorized(new { message = "Invalid email or password." });
         }
+
+        AuthSecurityExtensions.ClearLoginFailures(user);
+        await db.SaveChangesAsync(cancellationToken);
 
         var access = tokenProvider.Create(user);
         var refresh = await refreshTokenService.IssueAsync(user, cancellationToken);
