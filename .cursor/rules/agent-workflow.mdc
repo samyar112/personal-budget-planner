@@ -1,0 +1,30 @@
+---
+description: Professional agent workflow — slices, quality gates, user ownership
+alwaysApply: true
+---
+
+# Agent workflow
+
+## Source of truth
+- **How we work** → this rule
+- **What to build** → GitHub issues (acceptance criteria)
+- **What is shipped** → `main`
+- **Current milestone** → the active chat plan (temporary; not durable docs)
+
+## Every task
+1. One outcome + acceptance criteria before coding
+2. One vertical slice (one issue or deploy step) — not “build everything”
+3. Match existing patterns (auth cookies, API client, tests). No drive-by refactors
+4. No new packages unless the user asks
+5. Verify: run relevant tests/build; report results. User click-throughs auth/UI flows
+
+## Quality gates (required before “done”)
+- Automated checks green for touched area
+- Diff stays scoped to the request
+- Flag secrets, CORS, cookie SameSite, and deploy env risks
+
+## User owns
+Product judgment, design taste, merge/deploy clicks, and “good enough.” Agent proposes; user decides.
+
+## Deploy work
+Treat hosting as its own milestone with ordered slices (code prep → DB → API host → frontend host → smoke test). Do not mix deploy with new product stories.

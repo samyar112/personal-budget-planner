@@ -16,7 +16,8 @@ public static class AuthCookie
         {
             HttpOnly = true,
             Secure = !isDevelopment,
-            SameSite = SameSiteMode.Lax,
+            // Lax for local same-site; None+Secure for cross-site (e.g. Static Web Apps → App Service).
+            SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.None,
             Path = "/",
             Expires = expires,
             IsEssential = true,
@@ -27,7 +28,7 @@ public static class AuthCookie
         {
             HttpOnly = true,
             Secure = !isDevelopment,
-            SameSite = SameSiteMode.Lax,
+            SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.None,
             Path = RefreshCookiePath,
             Expires = expires,
             IsEssential = true,
