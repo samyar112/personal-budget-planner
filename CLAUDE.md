@@ -105,6 +105,20 @@ The point is that the user reviews the **design, not the diff**. Name the
 trade-offs and say what an interviewer would push on — this project is
 deliberate practice, not only delivery.
 
+## Responses
+
+Short, clear, concise. Answer first, then only the reasoning that changes a
+decision.
+
+- Lead with the answer or recommendation. No restating the question
+- Default to a few sentences. Expand only for a plan, a trade-off being
+  argued, or explicitly requested detail
+- One recommendation, not a survey of options
+- Cut: preamble, filler transitions, recaps of what was just said,
+  and re-explaining something already established in the conversation
+- Tables, headings and bullets only when they carry more than prose would
+- Verified output stays — quote real build/test results, per Every task
+
 ## Every task
 
 1. Plan first, per the section above. Acceptance criteria come from the issue
