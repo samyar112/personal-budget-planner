@@ -22,6 +22,8 @@ public sealed class AuthController(
     TokenProvider tokenProvider,
     RefreshTokenService refreshTokenService,
     IOptions<AuthSecurityOptions> authSecurityOptions,
+    EmailVerificationService emailVerification,
+    ILogger<AuthController> logger,
     IHostEnvironment environment) : ControllerBase
 {
     /// <summary>
@@ -68,6 +70,16 @@ public sealed class AuthController(
 
         db.Users.Add(user);
         await db.SaveChangesAsync(cancellationToken);
+
+        // A mail failure must not undo the signup; the user can request a resend.
+        try
+        {
+            await emailVerification.SendAsync(user, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogError(exception, "Verification email failed for user {UserId}.", user.Id);
+        }
 
         return Created(
             $"/api/auth/register/{user.Id}",
@@ -222,7 +234,73 @@ public sealed class AuthController(
             return Unauthorized();
         }
 
-        return Ok(new MeResponse(user.Id, user.Email, user.Name));
+        return Ok(new MeResponse(user.Id, user.Email, user.Name, user.EmailVerifiedAt is not null));
+    }
+
+    /// <summary>
+    /// Consumes the emailed token and marks the address verified. Tokens are single-use and expire.
+    /// </summary>
+    [HttpPost("verify-email")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> VerifyEmail(
+        [FromBody] VerifyEmailRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await emailVerification.VerifyAsync(request.Token, cancellationToken);
+        return result switch
+        {
+            VerifyEmailResult.Verified => Ok(new { message = "Email verified." }),
+            VerifyEmailResult.Expired => BadRequest(new
+            {
+                code = "expired",
+                message = "This verification link has expired. Request a new one.",
+            }),
+            _ => BadRequest(new
+            {
+                code = "invalid",
+                message = "This verification link is invalid or has already been used.",
+            }),
+        };
+    }
+
+    /// <summary>
+    /// Sends a fresh verification email. Always answers 202 so it cannot be used to
+    /// discover which addresses have accounts; rate-limited per IP.
+    /// </summary>
+    [EnableRateLimiting(AuthSecurityExtensions.ResendVerificationRateLimitPolicy)]
+    [HttpPost("resend-verification")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ResendVerification(
+        [FromBody] ResendVerificationRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            ModelState.AddModelError(nameof(request.Email), "Email is required.");
+            return ValidationProblem(ModelState);
+        }
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        var user = await db.Users.FirstOrDefaultAsync(
+            candidate => candidate.Email == email,
+            cancellationToken);
+
+        if (user is not null && user.EmailVerifiedAt is null)
+        {
+            try
+            {
+                await emailVerification.SendAsync(user, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogError(exception, "Verification resend failed for user {UserId}.", user.Id);
+            }
+        }
+
+        return Accepted(new { message = "If that account needs verification, an email is on its way." });
     }
 
     private void WriteAuthCookies(TokenResult access, IssuedRefreshToken refresh)

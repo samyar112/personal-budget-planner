@@ -258,15 +258,18 @@ const Landing = () => {
 
     try {
       if (!isLogin) {
+        const registeredEmail = form.email.trim();
         await registerUser({
           firstName: form.firstName.trim(),
           lastName: form.lastName.trim(),
-          email: form.email.trim(),
+          email: registeredEmail,
           password: form.password,
         });
 
         switchAuthMode(true, { preserveSuccess: true });
-        setSuccessMessage("Account created. Please log in.");
+        setSuccessMessage(
+          `Account created. We sent a verification link to ${registeredEmail}. Open it to verify your email, then log in.`,
+        );
         return;
       }
 

@@ -9,6 +9,8 @@ namespace backend.Extensions;
 public static class AuthSecurityExtensions
 {
     public const string LoginRateLimitPolicy = "login";
+    public const string ResendVerificationRateLimitPolicy = "resend-verification";
+    public const string VerifiedEmailPolicy = "VerifiedEmail";
 
     public static IServiceCollection AddAuthSecurity(this IServiceCollection services, IConfiguration configuration)
     {
@@ -21,6 +23,9 @@ public static class AuthSecurityExtensions
             .Validate(
                 options => options.MaxFailedLoginAttempts > 0 && options.LockoutMinutes > 0,
                 "AuthSecurity lockout values must be positive.")
+            .Validate(
+                options => options.ResendPermitLimit > 0 && options.ResendWindowSeconds > 0,
+                "AuthSecurity resend rate limit values must be positive.")
             .ValidateOnStart();
 
         services.AddRateLimiter(options =>
@@ -46,6 +51,23 @@ public static class AuthSecurityExtensions
                     {
                         PermitLimit = security.LoginPermitLimit,
                         Window = TimeSpan.FromSeconds(security.LoginWindowSeconds),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    });
+            });
+
+            options.AddPolicy(ResendVerificationRateLimitPolicy, httpContext =>
+            {
+                var security = httpContext.RequestServices
+                    .GetRequiredService<IOptions<AuthSecurityOptions>>()
+                    .Value;
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = security.ResendPermitLimit,
+                        Window = TimeSpan.FromSeconds(security.ResendWindowSeconds),
                         QueueLimit = 0,
                         AutoReplenishment = true,
                     });

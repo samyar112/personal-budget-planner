@@ -38,6 +38,7 @@ builder.Services
 
 builder.Services.AddSingleton<TokenProvider>();
 builder.Services.AddScoped<RefreshTokenService>();
+builder.Services.AddScoped<EmailVerificationService>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -81,7 +82,10 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy(AuthSecurityExtensions.VerifiedEmailPolicy, policy => policy
+        .RequireAuthenticatedUser()
+        .RequireClaim(TokenProvider.EmailVerifiedClaim, "true")));
 
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
     ?? ["http://localhost:5173", "http://127.0.0.1:5173"];

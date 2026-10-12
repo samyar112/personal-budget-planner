@@ -14,6 +14,8 @@ public sealed record TokenResult(string AccessToken, DateTime ExpiresAt);
 /// </summary>
 public sealed class TokenProvider(IOptions<JwtOptions> jwtOptions)
 {
+    public const string EmailVerifiedClaim = "email_verified";
+
     private readonly JwtOptions _options = jwtOptions.Value;
 
     public TokenResult Create(User user)
@@ -25,13 +27,19 @@ public sealed class TokenProvider(IOptions<JwtOptions> jwtOptions)
         }
 
         var expiresAt = DateTime.UtcNow.AddMinutes(_options.ExpiresMinutes);
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(JwtRegisteredClaimNames.Name, user.Name),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email),
+            new(JwtRegisteredClaimNames.Name, user.Name),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         };
+
+        // Read by the VerifiedEmail policy. Stale until the next refresh after verifying.
+        if (user.EmailVerifiedAt is not null)
+        {
+            claims.Add(new Claim(EmailVerifiedClaim, "true"));
+        }
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.Key));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

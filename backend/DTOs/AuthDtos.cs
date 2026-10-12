@@ -31,4 +31,10 @@ public sealed record RefreshResponse(DateTime ExpiresAt);
 public sealed record MeResponse(
     Guid Id,
     string Email,
-    string Name);
+    string Name,
+    bool EmailVerified);
+
+/// <summary>The raw token from the emailed link. Never logged or stored.</summary>
+public sealed record VerifyEmailRequest(string Token);
+
+public sealed record ResendVerificationRequest(string Email);
