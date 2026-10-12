@@ -29,7 +29,8 @@
       "Host": "smtp.gmail.com",
       "Port": 587,
       "Username": "YOUR_ADDRESS@gmail.com",
-      "Password": "GMAIL_APP_PASSWORD"
+      "Password": "GMAIL_APP_PASSWORD",
+      "CheckCertificateRevocation": true
     }
   },
   "Cors": {

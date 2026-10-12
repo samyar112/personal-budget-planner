@@ -11,7 +11,7 @@ public sealed class SmtpEmailSender(IOptions<EmailOptions> options) : IEmailSend
         var settings = options.Value;
         var smtp = settings.Smtp;
 
-        using var client = new SmtpClient();
+        using var client = new SmtpClient { CheckCertificateRevocation = smtp.CheckCertificateRevocation };
         // Auto negotiates STARTTLS on 587 and implicit TLS on 465.
         await client.ConnectAsync(smtp.Host, smtp.Port, SecureSocketOptions.Auto, cancellationToken);
         await client.AuthenticateAsync(smtp.Username, smtp.Password, cancellationToken);

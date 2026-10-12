@@ -27,6 +27,12 @@ public sealed class SmtpOptions
     public int Port { get; set; } = 587;
     public string Username { get; set; } = "";
 
+    /// <summary>
+    /// Keep true everywhere that can. Chain and hostname validation always run; this only
+    /// controls the OCSP/CRL lookup, which fails on some dev machines and networks.
+    /// </summary>
+    public bool CheckCertificateRevocation { get; set; } = true;
+
     /// <summary>Secret. User-secrets or git-ignored Development settings locally; App Service configuration in production.</summary>
     public string Password { get; set; } = "";
 }
