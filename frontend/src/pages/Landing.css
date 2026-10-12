@@ -147,24 +147,33 @@
   position: relative;
   padding-left: 1.1rem;
   font-size: 12px;
-  color: #c62828;
+  color: #6c757d;
 }
 
 .password-checklist li::before {
-  content: "✕";
+  content: "•";
   position: absolute;
   left: 0;
   top: 0;
+  color: #6c757d;
+}
+
+.password-checklist.is-validated li,
+.password-checklist.is-validated li::before {
   color: #c62828;
 }
 
-.password-checklist li.is-met {
+.password-checklist.is-validated li::before {
+  content: "✕";
+}
+
+.password-checklist.is-validated li.is-met,
+.password-checklist.is-validated li.is-met::before {
   color: #1f7a4d;
 }
 
-.password-checklist li.is-met::before {
+.password-checklist.is-validated li.is-met::before {
   content: "✓";
-  color: #1f7a4d;
 }
 
 .field-error {

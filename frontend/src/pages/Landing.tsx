@@ -109,6 +109,7 @@ const Landing = () => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [passwordSubmitted, setPasswordSubmitted] = useState(false);
   const [error, setError] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>(emptyFieldErrors);
@@ -147,6 +148,7 @@ const Landing = () => {
     setIsLogin(nextIsLogin);
     setForm(emptyForm);
     setShowPassword(false);
+    setPasswordSubmitted(false);
     setError("");
     if (!options?.preserveSuccess) {
       setSuccessMessage("");
@@ -173,6 +175,7 @@ const Landing = () => {
    */
   const validate = () => {
     setError("");
+    if (!isLogin) setPasswordSubmitted(true);
     const nextErrors: FieldErrors = { ...emptyFieldErrors };
     let isValid = true;
 
@@ -515,7 +518,10 @@ const Landing = () => {
                     )}
 
                     {!isLogin && (
-                      <ul className="password-checklist" aria-live="polite">
+                      <ul
+                        className={`password-checklist${passwordSubmitted ? " is-validated" : ""}`}
+                        aria-live="polite"
+                      >
                         <li className={passwordChecks.minLength ? "is-met" : ""}>
                           At least 8 characters
                         </li>
