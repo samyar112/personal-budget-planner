@@ -43,3 +43,7 @@ backend/obj/
 backend/migrate.sql
 **/bin/
 **/obj/
+
+# Local email sink (contains live tokens)
+email-outbox/
+backend/email-outbox/

@@ -22,6 +22,17 @@
     "MaxFailedLoginAttempts": 5,
     "LockoutMinutes": 15
   },
+  "Email": {
+    "Provider": "Smtp",
+    "FromAddress": "YOUR_ADDRESS@gmail.com",
+    "Smtp": {
+      "Host": "smtp.gmail.com",
+      "Port": 587,
+      "Username": "YOUR_ADDRESS@gmail.com",
+      "Password": "GMAIL_APP_PASSWORD",
+      "CheckCertificateRevocation": true
+    }
+  },
   "Cors": {
     "AllowedOrigins": [
       "http://localhost:5173",
