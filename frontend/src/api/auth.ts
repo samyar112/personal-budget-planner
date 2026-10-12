@@ -29,6 +29,7 @@ export type MeResult = {
   id: string;
   email: string;
   name: string;
+  emailVerified: boolean;
 };
 
 export type ApiFieldErrors = Partial<
@@ -38,12 +39,20 @@ export type ApiFieldErrors = Partial<
 export class ApiError extends Error {
   readonly status: number;
   readonly fieldErrors: ApiFieldErrors;
+  /** Machine-readable reason from the API, e.g. "expired" for a stale verification link. */
+  readonly code: string | null;
 
-  constructor(message: string, status: number, fieldErrors: ApiFieldErrors = {}) {
+  constructor(
+    message: string,
+    status: number,
+    fieldErrors: ApiFieldErrors = {},
+    code: string | null = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -121,7 +130,8 @@ function shouldAttemptRefresh(path: string): boolean {
   );
 }
 
-async function refreshSession(): Promise<boolean> {
+/** Mints a fresh access token so claims changed server-side (e.g. email verified) apply. */
+export async function refreshSession(): Promise<boolean> {
   if (refreshInFlight) {
     return refreshInFlight;
   }
@@ -223,4 +233,50 @@ export async function fetchCurrentUser(): Promise<MeResult> {
   }
 
   throwApiError(response, await parseErrorBody(response));
+}
+
+/** Consumes the emailed verification token. Rejects with code "expired" or "invalid". */
+export async function verifyEmail(token: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token }),
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  const body = (await parseErrorBody(response)) as { message?: string; code?: string } | null;
+  throw new ApiError(
+    body?.message ?? "Something went wrong. Please try again.",
+    response.status,
+    {},
+    body?.code ?? null,
+  );
+}
+
+/** Asks for a fresh verification email. The API answers the same for every address. */
+export async function resendVerification(email: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  if (response.status === 429) {
+    throw new ApiError("Too many requests. Please wait a few minutes and try again.", 429);
+  }
+
+  throw new ApiError("Something went wrong. Please try again.", response.status);
 }

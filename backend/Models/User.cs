@@ -9,6 +9,9 @@ public class User
     public string? GoogleSubject { get; set; }
     public DateTime DateEntered { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Set once the user proves they own <see cref="Email"/>. Null means unverified.</summary>
+    public DateTime? EmailVerifiedAt { get; set; }
+
     /// <summary>Consecutive failed password attempts since the last successful login.</summary>
     public int FailedLoginAttempts { get; set; }
 

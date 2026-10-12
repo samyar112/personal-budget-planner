@@ -17,6 +17,15 @@ public static class EmailExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.FromAddress),
                 "Email:FromAddress is required.")
+            .Validate(
+                options => options.VerificationTokenMinutes > 0,
+                "Email:VerificationTokenMinutes must be positive.")
+            .Validate<IHostEnvironment>(
+                (options, environment) =>
+                    Uri.TryCreate(options.FrontendBaseUrl, UriKind.Absolute, out var url)
+                    && (url.Scheme == Uri.UriSchemeHttps
+                        || (environment.IsDevelopment() && url.Scheme == Uri.UriSchemeHttp)),
+                "Email:FrontendBaseUrl must be an absolute https URL (http is allowed only in Development).")
             .Validate<IHostEnvironment>(
                 (options, environment) =>
                     options.Provider != EmailOptions.FileProvider || environment.IsDevelopment(),

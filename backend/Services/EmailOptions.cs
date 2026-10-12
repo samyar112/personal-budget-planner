@@ -12,6 +12,12 @@ public sealed class EmailOptions
 
     public string Provider { get; set; } = FileProvider;
 
+    /// <summary>Where emailed links point. Must be https outside Development.</summary>
+    public string FrontendBaseUrl { get; set; } = "http://localhost:5173";
+
+    /// <summary>How long an emailed verification link stays valid.</summary>
+    public int VerificationTokenMinutes { get; set; } = 15;
+
     /// <summary>Envelope sender. Gmail rewrites this to the authenticated account.</summary>
     public string FromAddress { get; set; } = "";
 

@@ -4,6 +4,7 @@ import { fetchCurrentUser } from "./api/auth";
 import { AUTH_GOOGLE_STUB_KEY, clearAuthSession } from "./components/BrandName";
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
+import VerifyEmail from "./pages/VerifyEmail";
 
 /**
  * Allows /home only when /api/auth/me succeeds (HttpOnly cookie),
@@ -64,6 +65,7 @@ const App = () => {
             </RequireAuth>
           }
         />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

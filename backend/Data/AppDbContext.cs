@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -17,6 +18,16 @@ public class AppDbContext : DbContext
             .IsUnique();
 
         modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasIndex(token => token.TokenHash).IsUnique();
+            entity.HasIndex(token => token.UserId);
+            entity.HasOne(token => token.User)
+                .WithMany()
+                .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EmailVerificationToken>(entity =>
         {
             entity.HasIndex(token => token.TokenHash).IsUnique();
             entity.HasIndex(token => token.UserId);

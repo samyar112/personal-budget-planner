@@ -19,6 +19,8 @@ namespace backend.Tests;
  * 6. Smtp provider without host or credentials is rejected.
  * 7. Smtp provider with full config is accepted in Production.
  * 8. Unknown provider is rejected.
+ * 9. A plain-http frontend URL is rejected outside Development.
+ * 10. A non-positive verification lifetime is rejected.
  *
  * Not covered: SmtpEmailSender talks to a real server. Checked by hand against Gmail.
  */
@@ -120,6 +122,7 @@ public sealed class EmailTests : IDisposable
             ["Email:Smtp:Port"] = "587",
             ["Email:Smtp:Username"] = "me@gmail.com",
             ["Email:Smtp:Password"] = "not-a-real-password",
+            ["Email:FrontendBaseUrl"] = "https://app.example.com",
         });
 
         Assert.Equal("smtp.gmail.com", options.Value.Smtp.Host);
@@ -132,6 +135,35 @@ public sealed class EmailTests : IDisposable
         {
             ["Email:Provider"] = "Carrier-pigeon",
             ["Email:FromAddress"] = "me@gmail.com",
+        });
+
+        Assert.Throws<OptionsValidationException>(() => options.Value);
+    }
+
+    [Fact]
+    public void Http_frontend_url_is_rejected_outside_development()
+    {
+        var options = Resolve("Production", new()
+        {
+            ["Email:Provider"] = "Smtp",
+            ["Email:FromAddress"] = "me@gmail.com",
+            ["Email:FrontendBaseUrl"] = "http://app.example.com",
+            ["Email:Smtp:Host"] = "smtp.gmail.com",
+            ["Email:Smtp:Username"] = "me@gmail.com",
+            ["Email:Smtp:Password"] = "not-a-real-password",
+        });
+
+        Assert.Throws<OptionsValidationException>(() => options.Value);
+    }
+
+    [Fact]
+    public void Non_positive_verification_lifetime_is_rejected()
+    {
+        var options = Resolve("Development", new()
+        {
+            ["Email:Provider"] = "File",
+            ["Email:FromAddress"] = "me@gmail.com",
+            ["Email:VerificationTokenMinutes"] = "0",
         });
 
         Assert.Throws<OptionsValidationException>(() => options.Value);

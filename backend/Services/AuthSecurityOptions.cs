@@ -18,4 +18,10 @@ public sealed class AuthSecurityOptions
 
     /// <summary>How long a locked account stays locked (minutes).</summary>
     public int LockoutMinutes { get; set; } = 15;
+
+    /// <summary>Max verification-email resend requests per IP within the window.</summary>
+    public int ResendPermitLimit { get; set; } = 3;
+
+    /// <summary>Fixed window length for the resend rate limit (seconds).</summary>
+    public int ResendWindowSeconds { get; set; } = 300;
 }

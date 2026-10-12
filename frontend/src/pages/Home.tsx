@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { logoutUser } from "../api/auth";
+import { ApiError, fetchCurrentUser, logoutUser, resendVerification } from "../api/auth";
 import BrandName, { BRAND_NAME, clearAuthSession } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import "./Home.css";
@@ -7,6 +8,26 @@ import "./Home.css";
 const Home = () => {
   const navigate = useNavigate();
   const financialScore = 84;
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendStatus, setResendStatus] = useState("");
+
+  useEffect(() => {
+    // The Google stub session has no API user; nothing to prompt for then.
+    fetchCurrentUser()
+      .then((me) => setUnverifiedEmail(me.emailVerified ? null : me.email))
+      .catch(() => setUnverifiedEmail(null));
+  }, []);
+
+  const handleResend = async () => {
+    if (!unverifiedEmail) return;
+    setResendStatus("");
+    try {
+      await resendVerification(unverifiedEmail);
+      setResendStatus("Verification email sent. Check your inbox.");
+    } catch (err) {
+      setResendStatus(err instanceof ApiError ? err.message : "Could not send the email. Try again.");
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -90,6 +111,18 @@ const Home = () => {
       </section>
 
       <div className="container py-5">
+        {unverifiedEmail && (
+          <div className="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="status">
+            <span>
+              Verify <strong>{unverifiedEmail}</strong> to unlock your finances. Check your inbox for the link.
+            </span>
+            <button type="button" className="btn btn-sm btn-outline-dark ms-auto" onClick={handleResend}>
+              Resend email
+            </button>
+            {resendStatus && <span className="w-100 small">{resendStatus}</span>}
+          </div>
+        )}
+
         {/* Privacy Banner */}
         <div className="privacy-banner mb-4">
           <span className="me-2">🔒</span>
