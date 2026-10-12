@@ -128,6 +128,51 @@ decision.
    Never "this should work". The user does auth and UI click-throughs
 5. Keep the diff scoped to what was asked
 
+## When to start a new session
+
+Say so, unprompted, when a fresh session would give better work. One line:
+what to start and why. Do not wait to be asked.
+
+Recommend a new session when:
+
+- A slice is merged and the next one is a different issue. One slice per session
+- The conversation has drifted across unrelated topics (for example auth, then
+  Azure troubleshooting, then a new feature)
+- It has run long and earlier details are getting lost or repeated
+- A long debugging or browser-testing detour is finished and its output is no
+  longer needed
+- The next task is a large review or investigation. Do it in a fresh session or
+  a subagent so it does not crowd the main thread
+
+Do not recommend one mid-slice. Before a handoff, state in a few lines the issue
+number, branch, what is done and what is next, so the user can paste it into the
+new session.
+
+## Handoff
+
+One file, `.claude/handoff.md`, git-ignored, local only. It holds the latest
+session's state and nothing older. It is a snapshot to orient from, not a
+source of truth: check it against GitHub issues and `git log`, and the issues
+win when they disagree.
+
+@.claude/handoff.md
+
+Assistants that do not expand the `@` line above: read `.claude/handoff.md`
+yourself at session start if it exists.
+
+**Write it** when the user says "wrap up" or when you recommend a new session.
+**Overwrite the whole file** every time. Never append, never keep a history.
+Keep it under ~25 lines, with these headings:
+
+- **Issue / branch** — issue number, branch, last commit on `main`
+- **Done** — what is finished and merged or verified
+- **Next** — the next task and its first step
+- **Open questions** — decisions waiting on the user
+- **Parked** — deliberately set aside, and why (for example Azure access)
+
+No secrets, credentials or personal data. The repo is public and a handoff can
+be copied into issues or commits by mistake.
+
 ## Before claiming something is missing
 
 Check the GitHub issues — **open and closed** — the code, and the git

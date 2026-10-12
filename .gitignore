@@ -11,6 +11,7 @@
 .agents/
 .cursor/skills/
 .claude/skills/
+.claude/handoff.md
 .codex/skills/
 skills-lock.json
 
