@@ -23,6 +23,7 @@ public sealed class AuthController(
     RefreshTokenService refreshTokenService,
     IOptions<AuthSecurityOptions> authSecurityOptions,
     EmailVerificationService emailVerification,
+    PasswordResetService passwordReset,
     ILogger<AuthController> logger,
     IHostEnvironment environment) : ControllerBase
 {
@@ -301,6 +302,82 @@ public sealed class AuthController(
         }
 
         return Accepted(new { message = "If that account needs verification, an email is on its way." });
+    }
+
+    /// <summary>
+    /// Emails a password-reset link. Always answers 202 so it cannot be used to discover
+    /// which addresses have accounts; rate-limited per IP.
+    /// </summary>
+    [EnableRateLimiting(AuthSecurityExtensions.ForgotPasswordRateLimitPolicy)]
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+        {
+            ModelState.AddModelError(nameof(request.Email), "Email is required.");
+            return ValidationProblem(ModelState);
+        }
+
+        var email = request.Email.Trim().ToLowerInvariant();
+        var user = await db.Users.FirstOrDefaultAsync(
+            candidate => candidate.Email == email,
+            cancellationToken);
+
+        if (user is not null)
+        {
+            try
+            {
+                await passwordReset.RequestAsync(user, cancellationToken);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                logger.LogError(exception, "Password reset email failed for user {UserId}.", user.Id);
+            }
+        }
+
+        return Accepted(new { message = "If an account exists for that address, a reset email is on its way." });
+    }
+
+    /// <summary>
+    /// Consumes the emailed token and sets a new password. Tokens are single-use and expire;
+    /// success clears lockout and signs the account out everywhere.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        var newPassword = request.NewPassword ?? string.Empty;
+        if (!AuthValidation.IsPasswordValid(newPassword))
+        {
+            ModelState.AddModelError(
+                nameof(request.NewPassword),
+                "Password must be at least 8 characters with upper, lower, number and special character.");
+            return ValidationProblem(ModelState);
+        }
+
+        var result = await passwordReset.ResetAsync(request.Token, newPassword, cancellationToken);
+        return result switch
+        {
+            ResetPasswordResult.Reset => Ok(new { message = "Password updated. Log in with your new password." }),
+            ResetPasswordResult.Expired => BadRequest(new
+            {
+                code = "expired",
+                message = "This reset link has expired. Request a new one.",
+            }),
+            _ => BadRequest(new
+            {
+                code = "invalid",
+                message = "This reset link is invalid or has already been used.",
+            }),
+        };
     }
 
     private void WriteAuthCookies(TokenResult access, IssuedRefreshToken refresh)

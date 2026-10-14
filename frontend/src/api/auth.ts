@@ -280,3 +280,54 @@ export async function resendVerification(email: string): Promise<void> {
 
   throw new ApiError("Something went wrong. Please try again.", response.status);
 }
+
+/** Asks for a password-reset email. The API answers the same for every address. */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  if (response.status === 429) {
+    throw new ApiError("Too many requests. Please wait a few minutes and try again.", 429);
+  }
+
+  throw new ApiError("Something went wrong. Please try again.", response.status);
+}
+
+/** Sets a new password from the emailed token. Rejects with code "expired" or "invalid". */
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token, newPassword }),
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  const body = (await parseErrorBody(response)) as {
+    message?: string;
+    code?: string;
+    errors?: Record<string, string[]>;
+  } | null;
+  const passwordError = body?.errors?.NewPassword?.[0] ?? body?.errors?.newPassword?.[0];
+  throw new ApiError(
+    passwordError ?? body?.message ?? "Something went wrong. Please try again.",
+    response.status,
+    {},
+    body?.code ?? null,
+  );
+}

@@ -20,6 +20,9 @@ public static class EmailExtensions
             .Validate(
                 options => options.VerificationTokenMinutes > 0,
                 "Email:VerificationTokenMinutes must be positive.")
+            .Validate(
+                options => options.PasswordResetTokenMinutes > 0,
+                "Email:PasswordResetTokenMinutes must be positive.")
             .Validate<IHostEnvironment>(
                 (options, environment) =>
                     Uri.TryCreate(options.FrontendBaseUrl, UriKind.Absolute, out var url)

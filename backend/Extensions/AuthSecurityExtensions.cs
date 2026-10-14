@@ -10,6 +10,7 @@ public static class AuthSecurityExtensions
 {
     public const string LoginRateLimitPolicy = "login";
     public const string ResendVerificationRateLimitPolicy = "resend-verification";
+    public const string ForgotPasswordRateLimitPolicy = "forgot-password";
     public const string VerifiedEmailPolicy = "VerifiedEmail";
 
     public static IServiceCollection AddAuthSecurity(this IServiceCollection services, IConfiguration configuration)
@@ -57,6 +58,24 @@ public static class AuthSecurityExtensions
             });
 
             options.AddPolicy(ResendVerificationRateLimitPolicy, httpContext =>
+            {
+                var security = httpContext.RequestServices
+                    .GetRequiredService<IOptions<AuthSecurityOptions>>()
+                    .Value;
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = security.ResendPermitLimit,
+                        Window = TimeSpan.FromSeconds(security.ResendWindowSeconds),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    });
+            });
+
+            // Shares the resend limits but keeps its own per-IP counter.
+            options.AddPolicy(ForgotPasswordRateLimitPolicy, httpContext =>
             {
                 var security = httpContext.RequestServices
                     .GetRequiredService<IOptions<AuthSecurityOptions>>()
