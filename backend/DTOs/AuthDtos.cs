@@ -38,3 +38,8 @@ public sealed record MeResponse(
 public sealed record VerifyEmailRequest(string Token);
 
 public sealed record ResendVerificationRequest(string Email);
+
+public sealed record ForgotPasswordRequest(string Email);
+
+/// <summary>The raw token from the emailed link plus the new password. Never logged.</summary>
+public sealed record ResetPasswordRequest(string Token, string NewPassword);

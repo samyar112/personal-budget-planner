@@ -24,6 +24,22 @@ public static class EmailTemplates
             validFor,
             ignoreNote: "If you did not ask for this, you can ignore this email. Your password has not changed.");
 
+    public static EmailMessage GoogleAccountNotice(string to)
+    {
+        const string body =
+            "Someone asked to reset the password for this VaultBudget account, but it signs in with "
+            + "Google and has no password. Use \"Continue with Google\" on the log in page instead.";
+        const string ignoreNote = "If you did not ask for this, you can ignore this email.";
+
+        var text = $"{body}\n\n{ignoreNote}\n";
+        var html = $"""
+            <p>{WebUtility.HtmlEncode(body)}</p>
+            <p>{WebUtility.HtmlEncode(ignoreNote)}</p>
+            """;
+
+        return new EmailMessage(to, "Signing in to VaultBudget", text, html);
+    }
+
     private static EmailMessage Build(
         string to, string subject, string intro, string action, string link, TimeSpan validFor, string ignoreNote)
     {

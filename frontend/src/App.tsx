@@ -5,6 +5,8 @@ import { AUTH_GOOGLE_STUB_KEY, clearAuthSession } from "./components/BrandName";
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import VerifyEmail from "./pages/VerifyEmail";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 /**
  * Allows /home only when /api/auth/me succeeds (HttpOnly cookie),
@@ -66,6 +68,8 @@ const App = () => {
           }
         />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

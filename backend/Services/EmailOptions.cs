@@ -18,6 +18,9 @@ public sealed class EmailOptions
     /// <summary>How long an emailed verification link stays valid.</summary>
     public int VerificationTokenMinutes { get; set; } = 15;
 
+    /// <summary>How long an emailed password-reset link stays valid.</summary>
+    public int PasswordResetTokenMinutes { get; set; } = 15;
+
     /// <summary>Envelope sender. Gmail rewrites this to the authenticated account.</summary>
     public string FromAddress { get; set; } = "";
 

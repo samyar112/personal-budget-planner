@@ -558,9 +558,9 @@ const Landing = () => {
 
                   {isLogin && (
                     <div className="text-end mb-3">
-                      <a href="/forgot-password" className="small text-primary text-decoration-none">
+                      <Link to="/forgot-password" className="small text-primary text-decoration-none">
                         Forgot password?
-                      </a>
+                      </Link>
                     </div>
                   )}
 
