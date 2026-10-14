@@ -14,7 +14,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    // App Service / reverse proxies terminate TLS; trust forwarded headers from the edge.
+    // Reverse proxies (Tailscale Funnel, Vercel rewrite) terminate TLS; trust forwarded headers from the edge.
     options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });

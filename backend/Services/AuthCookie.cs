@@ -16,7 +16,7 @@ public static class AuthCookie
         {
             HttpOnly = true,
             Secure = !isDevelopment,
-            // Lax for local same-site; None+Secure for cross-site (e.g. Vercel → App Service).
+            // Lax for local same-site; None+Secure for cross-site (e.g. Vercel → a separately hosted API).
             SameSite = isDevelopment ? SameSiteMode.Lax : SameSiteMode.None,
             Path = "/",
             Expires = expires,

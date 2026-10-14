@@ -17,7 +17,7 @@ world-readable.
   Bootstrap 5.3, `@react-oauth/google` 0.13
 - **Tests** — xUnit 2.9.3, `Microsoft.AspNetCore.Mvc.Testing` 10.0.10,
   EF Core InMemory 10.0.10
-- **Database** — PostgreSQL 18 locally; Azure Postgres Flexible Server in prod
+- **Database** — PostgreSQL 18 locally; in Docker on a Raspberry Pi in prod
 - **Tooling** — `dotnet-ef` 10.0.11 as a global tool
 
 ## Structure
@@ -137,7 +137,7 @@ Recommend a new session when:
 
 - A slice is merged and the next one is a different issue. One slice per session
 - The conversation has drifted across unrelated topics (for example auth, then
-  Azure troubleshooting, then a new feature)
+  Pi setup troubleshooting, then a new feature)
 - It has run long and earlier details are getting lost or repeated
 - A long debugging or browser-testing detour is finished and its output is no
   longer needed
@@ -168,7 +168,7 @@ Keep it under ~25 lines, with these headings:
 - **Done** — what is finished and merged or verified
 - **Next** — the next task and its first step
 - **Open questions** — decisions waiting on the user
-- **Parked** — deliberately set aside, and why (for example Azure access)
+- **Parked** — deliberately set aside, and why (for example Pi network access)
 
 No secrets, credentials or personal data. The repo is public and a handoff can
 be copied into issues or commits by mistake.
@@ -212,7 +212,7 @@ artifact — does not, but say what you installed. Keep it out of the repo.
 
 Never put a real credential in chat, in a file you write, or in a commit. Ask
 the user to enter passwords and tokens themselves. Connection strings and keys
-belong in App Service configuration or a git-ignored `.env`, never in
+belong in a git-ignored `.env` (on the Pi in production), never in
 `appsettings.json` — which ships an empty `DefaultConnection` deliberately.
 
 A Postgres credential was committed here once and had to be purged from all
