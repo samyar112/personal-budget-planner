@@ -39,6 +39,6 @@ public sealed class SmtpOptions
     /// </summary>
     public bool CheckCertificateRevocation { get; set; } = true;
 
-    /// <summary>Secret. User-secrets or git-ignored Development settings locally; App Service configuration in production.</summary>
+    /// <summary>Secret. User-secrets or git-ignored Development settings locally; the Pi's git-ignored `.env` in production.</summary>
     public string Password { get; set; } = "";
 }
