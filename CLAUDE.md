@@ -187,8 +187,9 @@ All three had been open issues since July.
 ## Ask first
 
 Anything that writes **outside the working tree** needs explicit approval:
-GitHub issues, PRs or comments; `git push`, force-push, branch deletion;
-creating or deleting cloud resources; sending email.
+GitHub issues, PRs or comments; `git push`, force-push, branch deletion
+(except the cleanup rule under Commits); creating or deleting cloud
+resources; sending email.
 
 Reading and editing local files does not. Neither does running tests or builds.
 
@@ -244,3 +245,6 @@ host → frontend host → smoke test. Never mixed with product stories.
 - No AI attribution trailers. Do not add `Co-authored-by:` for an assistant,
   or "Generated with" lines, to commits or pull request descriptions
 - Do not commit or push unless asked
+- After a PR is merged, delete its branch locally and on the remote, then return to
+  `main` and pull. This is standing approval for the merged slice's own branch
+  only; never `main`, and never a branch whose PR is not merged
