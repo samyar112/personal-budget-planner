@@ -1,5 +1,6 @@
 using backend.Data;
 using backend.Extensions;
+using backend.Services;
 using backend.Services.Email;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,6 +24,12 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
 
     protected virtual IReadOnlyDictionary<string, string?> ExtraConfig =>
         new Dictionary<string, string?>();
+
+    /// <summary>
+    /// Most tests assert on mail right after the request, so by default the queue runs jobs
+    /// inline. Queue tests turn this off to exercise the real queue and worker.
+    /// </summary>
+    protected virtual bool UseInlineEmailQueue => true;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -71,6 +78,12 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<CapturingEmailSender>();
             services.AddSingleton<IEmailSender>(provider => provider.GetRequiredService<CapturingEmailSender>());
 
+            if (UseInlineEmailQueue)
+            {
+                services.RemoveAll<IAccountEmailQueue>();
+                services.AddSingleton<IAccountEmailQueue, InlineAccountEmailQueue>();
+            }
+
             // Stand-in for a ledger endpoint, which does not exist yet.
             services.AddControllers().AddApplicationPart(typeof(VerifiedOnlyProbeController).Assembly);
         });
@@ -100,6 +113,18 @@ public sealed class CapturingEmailSender : IEmailSender
     /// <summary>Pulls the raw token out of the emailed link.</summary>
     public static string TokenFrom(EmailMessage message) =>
         System.Text.RegularExpressions.Regex.Match(message.TextBody, @"token=([A-Za-z0-9_-]+)").Groups[1].Value;
+}
+
+/// <summary>Runs each account email job immediately, so tests need not wait for the worker.</summary>
+public sealed class InlineAccountEmailQueue(IServiceScopeFactory scopeFactory) : IAccountEmailQueue
+{
+    public async ValueTask EnqueueAsync(AccountEmailJob job, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        await scope.ServiceProvider
+            .GetRequiredService<AccountEmailProcessor>()
+            .ProcessAsync(job, cancellationToken);
+    }
 }
 
 /// <summary>Always fails, to prove signup survives a mail outage.</summary>

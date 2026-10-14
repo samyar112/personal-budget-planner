@@ -5,6 +5,7 @@ using backend.DTOs;
 using backend.Extensions;
 using backend.Models;
 using backend.Services;
+using backend.Services.Email;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -24,6 +25,7 @@ public sealed class AuthController(
     IOptions<AuthSecurityOptions> authSecurityOptions,
     EmailVerificationService emailVerification,
     PasswordResetService passwordReset,
+    IAccountEmailQueue accountEmails,
     ILogger<AuthController> logger,
     IHostEnvironment environment) : ControllerBase
 {
@@ -284,22 +286,11 @@ public sealed class AuthController(
             return ValidationProblem(ModelState);
         }
 
-        var email = request.Email.Trim().ToLowerInvariant();
-        var user = await db.Users.FirstOrDefaultAsync(
-            candidate => candidate.Email == email,
+        // Lookup and send happen in the background worker so response time is the same
+        // whether or not the address has an account.
+        await accountEmails.EnqueueAsync(
+            new AccountEmailJob(AccountEmailKind.VerificationResend, request.Email.Trim().ToLowerInvariant()),
             cancellationToken);
-
-        if (user is not null && user.EmailVerifiedAt is null)
-        {
-            try
-            {
-                await emailVerification.SendAsync(user, cancellationToken);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                logger.LogError(exception, "Verification resend failed for user {UserId}.", user.Id);
-            }
-        }
 
         return Accepted(new { message = "If that account needs verification, an email is on its way." });
     }
@@ -323,22 +314,9 @@ public sealed class AuthController(
             return ValidationProblem(ModelState);
         }
 
-        var email = request.Email.Trim().ToLowerInvariant();
-        var user = await db.Users.FirstOrDefaultAsync(
-            candidate => candidate.Email == email,
+        await accountEmails.EnqueueAsync(
+            new AccountEmailJob(AccountEmailKind.PasswordReset, request.Email.Trim().ToLowerInvariant()),
             cancellationToken);
-
-        if (user is not null)
-        {
-            try
-            {
-                await passwordReset.RequestAsync(user, cancellationToken);
-            }
-            catch (Exception exception) when (exception is not OperationCanceledException)
-            {
-                logger.LogError(exception, "Password reset email failed for user {UserId}.", user.Id);
-            }
-        }
 
         return Accepted(new { message = "If an account exists for that address, a reset email is on its way." });
     }

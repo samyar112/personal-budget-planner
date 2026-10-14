@@ -51,6 +51,11 @@ public static class EmailExtensions
                 ? ActivatorUtilities.CreateInstance<SmtpEmailSender>(provider)
                 : ActivatorUtilities.CreateInstance<FileEmailSender>(provider));
 
+        services.AddSingleton<ChannelAccountEmailQueue>();
+        services.AddSingleton<IAccountEmailQueue>(provider => provider.GetRequiredService<ChannelAccountEmailQueue>());
+        services.AddScoped<AccountEmailProcessor>();
+        services.AddHostedService<AccountEmailWorker>();
+
         return services;
     }
 }
