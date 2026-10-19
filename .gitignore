@@ -47,3 +47,7 @@ backend/migrate.sql
 # Local email sink (contains live tokens)
 email-outbox/
 backend/email-outbox/
+
+# Local-only assistant notes (personal data, never committed)
+CLAUDE.local.md
+.claude/launch.json
