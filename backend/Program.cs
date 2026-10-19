@@ -12,13 +12,27 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    // Reverse proxies (Tailscale Funnel, Vercel rewrite) terminate TLS; trust forwarded headers from the edge.
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
-});
+builder.Services
+    .AddOptions<ProxyOptions>()
+    .Bind(builder.Configuration.GetSection(ProxyOptions.SectionName))
+    .Validate(
+        options => options.KnownNetworks.All(network => System.Net.IPNetwork.TryParse(network, out _)),
+        "Proxy:KnownNetworks must be CIDR ranges such as 10.0.0.0/8.")
+    .ValidateOnStart();
+
+// Reverse proxies (Tailscale Funnel, Vercel rewrite) terminate TLS, so honour the forwarded headers,
+// but only from the configured proxy ranges. Trusting every peer would let a client spoof its IP.
+builder.Services.AddOptions<ForwardedHeadersOptions>()
+    .Configure<IOptions<ProxyOptions>>((options, proxy) =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+        foreach (var network in proxy.Value.KnownNetworks)
+        {
+            options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+        }
+    });
 
 builder.Services.AddDbContext<backend.Data.AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
