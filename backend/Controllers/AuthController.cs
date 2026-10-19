@@ -30,6 +30,7 @@ public sealed class AuthController(
     IHostEnvironment environment) : ControllerBase
 {
     private const string InvalidCredentialsMessage = "Invalid email or password.";
+    private const string DeactivatedMessage = "This account has been deactivated. Contact an administrator.";
 
     private static readonly User DummyUser = new() { Email = string.Empty, Name = string.Empty };
     private static string? _dummyHash;
@@ -159,6 +160,12 @@ public sealed class AuthController(
             return Unauthorized(new { message = InvalidCredentialsMessage });
         }
 
+        // Said only after the password checks out, so it tells nothing to someone who lacks it.
+        if (!user.IsActive)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = DeactivatedMessage });
+        }
+
         // A verified user still owes the emailed code, and wrong codes count toward the same
         // lockout, so only the code step may clear the failures. Clearing here would hand someone
         // who knows the password a fresh batch of guesses on every login.
@@ -225,6 +232,12 @@ public sealed class AuthController(
 
     private async Task<ActionResult> SignInAsync(User user, CancellationToken cancellationToken)
     {
+        // Covers an account deactivated between the password step and the code step.
+        if (!user.IsActive)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = DeactivatedMessage });
+        }
+
         var access = tokenProvider.Create(user);
         var refresh = await refreshTokenService.IssueAsync(user, cancellationToken);
         WriteAuthCookies(access, refresh);
@@ -305,12 +318,12 @@ public sealed class AuthController(
             candidate => candidate.Id == userId,
             cancellationToken);
 
-        if (user is null)
+        if (user is null || !user.IsActive)
         {
             return Unauthorized();
         }
 
-        return Ok(new MeResponse(user.Id, user.Email, user.Name, user.EmailVerifiedAt is not null));
+        return Ok(new MeResponse(user.Id, user.Email, user.Name, user.EmailVerifiedAt is not null, user.Role.ToString()));
     }
 
     /// <summary>
