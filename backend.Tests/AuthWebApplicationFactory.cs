@@ -4,6 +4,7 @@ using backend.Models;
 using backend.Services;
 using backend.Services.Email;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Hosting;
@@ -218,4 +219,51 @@ public sealed class CountingHasherWebApplicationFactory : AuthWebApplicationFact
     }
 
     public CountingPasswordHasher Hasher => Services.GetRequiredService<CountingPasswordHasher>();
+}
+
+/// <summary>
+/// Factory whose requests arrive from a fixed peer address. TestServer has no remote IP of its own,
+/// and the forwarded-headers middleware does not vet an unknown peer, so a startup filter supplies one.
+/// </summary>
+public abstract class FixedPeerWebApplicationFactory(string peerAddress) : AuthWebApplicationFactory
+{
+    protected override IReadOnlyDictionary<string, string?> ExtraConfig { get; } =
+        new Dictionary<string, string?>
+        {
+            ["AuthSecurity:LoginPermitLimit"] = "3",
+            ["Proxy:KnownNetworks:0"] = "10.0.0.0/8",
+        };
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.ConfigureTestServices(services =>
+            services.AddSingleton<IStartupFilter>(new FixedPeerStartupFilter(peerAddress)));
+    }
+
+    private sealed class FixedPeerStartupFilter(string peerAddress) : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((context, nextMiddleware) =>
+            {
+                context.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(peerAddress);
+                return nextMiddleware();
+            });
+            next(app);
+        };
+    }
+}
+
+/// <summary>A peer inside Proxy:KnownNetworks, like Tailscale Funnel on the same network.</summary>
+public sealed class TrustedProxyWebApplicationFactory() : FixedPeerWebApplicationFactory("10.1.2.3");
+
+/// <summary>A peer outside Proxy:KnownNetworks, like a client that reached the API directly.</summary>
+public sealed class UntrustedPeerWebApplicationFactory() : FixedPeerWebApplicationFactory("203.0.113.99");
+
+/// <summary>Factory with a malformed proxy range, which must stop the app at startup.</summary>
+public sealed class BadProxyRangeWebApplicationFactory : AuthWebApplicationFactory
+{
+    protected override IReadOnlyDictionary<string, string?> ExtraConfig { get; } =
+        new Dictionary<string, string?> { ["Proxy:KnownNetworks:0"] = "not-a-network" };
 }
