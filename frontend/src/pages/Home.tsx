@@ -1,16 +1,31 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError, fetchCurrentUser, logoutUser, resendVerification } from "../api/auth";
+import {
+  fetchAllTransactions,
+  fetchTransactions,
+  formatDate,
+  formatMoney,
+  summarize,
+  toDateString,
+  type LedgerSummary,
+  type Transaction,
+} from "../api/transactions";
 import BrandName, { BRAND_NAME, clearAuthSession } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import "./Home.css";
 
 const Home = () => {
   const navigate = useNavigate();
-  const financialScore = 84;
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [ledger, setLedger] = useState<
+    | { status: "loading" }
+    | { status: "error"; message: string }
+    | { status: "ready"; recent: Transaction[]; summary: LedgerSummary; hasRows: boolean }
+  >({ status: "loading" });
+  const [ledgerAttempt, setLedgerAttempt] = useState(0);
 
   useEffect(() => {
     // The Google stub session has no API user; nothing to prompt for then.
@@ -21,6 +36,43 @@ const Home = () => {
       })
       .catch(() => setUnverifiedEmail(null));
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLedger({ status: "loading" });
+      try {
+        const today = new Date();
+        const windowStart = new Date(today);
+        windowStart.setDate(today.getDate() - 29);
+        const [recent, windowRows] = await Promise.all([
+          fetchTransactions({ page: 1, pageSize: 10 }),
+          fetchAllTransactions({ from: toDateString(windowStart), to: toDateString(today) }),
+        ]);
+        if (!cancelled) {
+          setLedger({
+            status: "ready",
+            recent: recent.items,
+            summary: summarize(windowRows),
+            hasRows: recent.total > 0,
+          });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLedger({
+            status: "error",
+            message: err instanceof ApiError ? err.message : "Could not load transactions. Try again.",
+          });
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [ledgerAttempt]);
 
   const handleResend = async () => {
     if (!unverifiedEmail) return;
@@ -143,39 +195,22 @@ const Home = () => {
 
         {/* Summary Cards */}
         <div className="row g-4 mb-4">
-          <div className="col-md-3">
-            <div className="summary-card income">
-              <h6>Income</h6>
-              <h3>$4,500</h3>
+          {(
+            [
+              ["income", "Income", ledger.status === "ready" ? ledger.summary.income : null],
+              ["expense", "Expenses", ledger.status === "ready" ? ledger.summary.expenses : null],
+              ["savings", "Savings", ledger.status === "ready" ? ledger.summary.savings : null],
+            ] as const
+          ).map(([className, label, value]) => (
+            <div className="col-md-4" key={className}>
+              <div className={`summary-card ${className}`}>
+                <h6>{label} <span className="summary-card__window">· last 30 days</span></h6>
+                <h3>{value === null ? "—" : formatMoney(value)}</h3>
+              </div>
             </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="summary-card expense">
-              <h6>Expenses</h6>
-              <h3>$3,250</h3>
-            </div>
-          </div>
-
-          <div className="col-md-3">
-            <div className="summary-card savings">
-              <h6>Savings</h6>
-              <h3>$1,250</h3>
-            </div>
-          </div>
-
-            <div className="col-md-3">
-                <div className="summary-card score">
-                    <h6>Financial Score</h6>
-                    <h3>{financialScore}<span className="score-max">/100</span></h3>
-                    <span className={`score-badge ${financialScore >= 80 ? "badge-good" : financialScore >= 60 ? "badge-fair" : "badge-poor"}`}>
-                    {financialScore >= 80 ? "✓ Good" : financialScore >= 60 ? "⚠ Fair" : "✗ Needs Work"}
-                    </span>
-                    <p className="score-label">Based on savings, spending & debt</p>
-                </div>
-            </div>
+          ))}
         </div>
-        
+
         {/* Main Content */}
         <div className="row g-4">
           {/* Spending Breakdown */}
@@ -216,60 +251,57 @@ const Home = () => {
             </button>
             </div>
 
-            <div className="table-responsive">
-            <table className="table">
-                <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Category</th>
-                    <th>Card</th>
-                    <th className="text-end">Amount</th>
-                </tr>
-                </thead>
+            {ledger.status === "loading" && (
+              <p className="text-body-secondary mb-0" role="status">Loading transactions…</p>
+            )}
 
-                <tbody>
-                <tr>
-                    <td>06/20/2026</td>
-                    <td>Walmart</td>
-                    <td>Groceries</td>
-                    <td>
-                    <div className="card-detail">
-                        <span className="card-bank">Franklin Mgmt Inc</span>
-                        <span className="card-ending">•••• 207</span>
-                    </div>
-                    </td>
-                    <td className="text-end amount-negative">-$54.82</td>
-                </tr>
+            {ledger.status === "error" && (
+              <div className="alert alert-warning d-flex align-items-center gap-2 mb-0" role="alert">
+                <span>{ledger.message}</span>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-dark ms-auto"
+                  onClick={() => setLedgerAttempt((attempt) => attempt + 1)}
+                >
+                  Try again
+                </button>
+              </div>
+            )}
 
-                <tr>
-                    <td>06/18/2026</td>
-                    <td>Payroll Deposit</td>
-                    <td>Income</td>
-                    <td>
-                    <div className="card-detail">
-                        <span className="card-bank">Valiant Capital Mgmt LP</span>
-                        <span className="card-ending">•••• 202</span>
-                    </div>
-                    </td>
-                    <td className="text-end amount-positive">+$2,250.00</td>
-                </tr>
+            {ledger.status === "ready" && !ledger.hasRows && (
+              <p className="text-body-secondary mb-0">
+                No transactions yet. Connect a bank or upload a statement to see them here.
+              </p>
+            )}
 
-                <tr>
-                    <td>06/17/2026</td>
-                    <td>Netflix</td>
-                    <td>Entertainment</td>
-                    <td>
-                    <div className="card-detail">
-                        <span className="card-bank">Valiant Capital Mgmt LP</span>
-                        <span className="card-ending">•••• 207</span>
-                    </div>
-                    </td>
-                    <td className="text-end amount-negative">-$15.99</td>
-                </tr>
-                </tbody>
-            </table>
-            </div>
+            {ledger.status === "ready" && ledger.hasRows && (
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Description</th>
+                      <th>Category</th>
+                      <th className="text-end">Amount</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {ledger.recent.map((row) => (
+                      <tr key={row.id}>
+                        <td>{formatDate(row.date)}</td>
+                        <td>{row.description}</td>
+                        <td>{row.category ?? "Uncategorised"}</td>
+                        <td className={`text-end ${row.amount < 0 ? "amount-negative" : "amount-positive"}`}>
+                          {row.amount < 0 ? "-" : "+"}
+                          {formatMoney(Math.abs(row.amount))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
         </div>
         </div>
 
