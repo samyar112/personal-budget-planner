@@ -23,6 +23,9 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(token => token.TokenHash).IsUnique();
             entity.HasIndex(token => token.UserId);
+            entity.HasIndex(token => token.FamilyId);
+            // Of two parallel rotations or revocations only one may save.
+            entity.Property(token => token.RevokedAt).IsConcurrencyToken();
             entity.HasOne(token => token.User)
                 .WithMany()
                 .HasForeignKey(token => token.UserId)

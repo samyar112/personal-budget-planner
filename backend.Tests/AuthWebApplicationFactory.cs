@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +24,7 @@ namespace backend.Tests;
 /// </summary>
 public class AuthWebApplicationFactory : WebApplicationFactory<Program>
 {
-    private readonly string _databaseName = $"AuthTests-{Guid.NewGuid()}";
+    protected string DatabaseName { get; } = $"AuthTests-{Guid.NewGuid()}";
 
     protected virtual IReadOnlyDictionary<string, string?> ExtraConfig =>
         new Dictionary<string, string?>();
@@ -76,7 +77,7 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
             services.RemoveAll<AppDbContext>();
 
             services.AddDbContext<AppDbContext>(options =>
-                options.UseInMemoryDatabase(_databaseName));
+                options.UseInMemoryDatabase(DatabaseName));
 
             // Capture outgoing mail so tests can read the verification token.
             services.RemoveAll<IEmailSender>();
@@ -266,4 +267,50 @@ public sealed class BadProxyRangeWebApplicationFactory : AuthWebApplicationFacto
 {
     protected override IReadOnlyDictionary<string, string?> ExtraConfig { get; } =
         new Dictionary<string, string?> { ["Proxy:KnownNetworks:0"] = "not-a-network" };
+}
+
+/// <summary>
+/// Lets a test run a competing write from another context in the middle of a save, to reproduce
+/// two requests racing. In-memory stores cannot interleave real requests, so this stands in.
+/// </summary>
+public sealed class RaceInjector : SaveChangesInterceptor
+{
+    private bool _fired;
+
+    public Func<DbContext, bool>? Trigger { get; set; }
+
+    public Func<DbContext, Task>? Race { get; set; }
+
+    public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+        DbContextEventData eventData,
+        InterceptionResult<int> result,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_fired && eventData.Context is { } context && Trigger?.Invoke(context) == true)
+        {
+            _fired = true;
+            await Race!(context);
+        }
+
+        return result;
+    }
+}
+
+/// <summary>Factory whose database context runs <see cref="Injector"/> on every save.</summary>
+public sealed class RaceWebApplicationFactory : AuthWebApplicationFactory
+{
+    public RaceInjector Injector { get; } = new();
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
+            services.RemoveAll<DbContextOptions<AppDbContext>>();
+            services.RemoveAll<AppDbContext>();
+            services.AddDbContext<AppDbContext>(options =>
+                options.UseInMemoryDatabase(DatabaseName).AddInterceptors(Injector));
+        });
+    }
 }

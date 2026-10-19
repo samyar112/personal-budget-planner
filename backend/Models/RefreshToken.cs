@@ -11,6 +11,9 @@ public class RefreshToken
 
     public User User { get; set; } = null!;
 
+    /// <summary>One login and every rotation of it. Replaying a dead token burns the whole family.</summary>
+    public Guid FamilyId { get; set; } = Guid.NewGuid();
+
     /// <summary>SHA-256 hash of the raw token sent in the HttpOnly cookie.</summary>
     public required string TokenHash { get; set; }
 
