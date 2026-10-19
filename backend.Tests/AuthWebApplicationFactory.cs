@@ -187,15 +187,22 @@ public sealed class LoginCodeCooldownWebApplicationFactory : AuthWebApplicationF
         };
 }
 
-/// <summary>Counts password verifications so tests can prove login always does the hashing work.</summary>
+/// <summary>Counts password hashes and verifications so tests can prove an endpoint always does the hashing work.</summary>
 public sealed class CountingPasswordHasher : IPasswordHasher<User>
 {
     private readonly PasswordHasher<User> _inner = new();
     private int _verifications;
+    private int _hashes;
 
     public int Verifications => Volatile.Read(ref _verifications);
 
-    public string HashPassword(User user, string password) => _inner.HashPassword(user, password);
+    public int Hashes => Volatile.Read(ref _hashes);
+
+    public string HashPassword(User user, string password)
+    {
+        Interlocked.Increment(ref _hashes);
+        return _inner.HashPassword(user, password);
+    }
 
     public PasswordVerificationResult VerifyHashedPassword(User user, string hashedPassword, string providedPassword)
     {

@@ -272,7 +272,7 @@ const Landing = () => {
 
         switchAuthMode(true, { preserveSuccess: true });
         setSuccessMessage(
-          `Account created. We sent a verification link to ${registeredEmail}. Open it to verify your email, then log in.`,
+          `Check ${registeredEmail}. If this is a new account, open the verification link we sent, then log in. If you already have one, the email explains how to get back in.`,
         );
         return;
       }
