@@ -74,6 +74,9 @@ public sealed class TransactionsController : ControllerBase
 token** — never from a route or body parameter. A missing filter leaks one
 user's finances to another.
 
+Declare `[ProducesResponseType]` for every status an action returns, so it
+shows up with the right schemas in `/openapi/v1.json` and the Scalar UI.
+
 ## Configuration
 
 Options pattern, validated at startup so misconfiguration fails at boot:
@@ -149,4 +152,12 @@ These hold across the whole API. Breaking one is a defect, not a design choice.
 - Failed-login state (`FailedLoginAttempts`, `LockoutEnd`) updates on every
   attempt, successful or not
 - Auth responses do not reveal whether an account exists — same response and
-  timing either way
+  timing either way. That covers register, login (unknown, wrong password and
+  locked all answer 401), forgot-password and resend-verification
+- Endpoints that read or write ledger data carry
+  `[Authorize(Policy = AuthSecurityExtensions.VerifiedEmailPolicy)]`. Plain
+  `[Authorize]` is for account endpoints such as `/me`; unverified accounts get
+  cookies, so a bare `[Authorize]` on user data is a defect
+- Google sign-in must never sign in to, or link with, an existing account
+  whose email is unverified. Someone could pre-register a victim's address
+  with their own password and wait
