@@ -25,6 +25,17 @@ export type LoginResult = {
   name: string;
 };
 
+/** Returned instead of cookies when a login code has been emailed. */
+export type LoginChallenge = {
+  challengeId: string;
+  /** ISO time after which another code may be requested. */
+  resendAvailableAt: string;
+};
+
+export type LoginOutcome =
+  | { kind: "signedIn"; result: LoginResult }
+  | { kind: "challenge"; challenge: LoginChallenge };
+
 export type MeResult = {
   id: string;
   email: string;
@@ -192,8 +203,11 @@ export async function registerUser(payload: RegisterPayload): Promise<RegisterRe
   throwApiError(response, await parseErrorBody(response));
 }
 
-/** Logs in with email/password. Access JWT + opaque refresh are set as HttpOnly cookies. */
-export async function loginUser(payload: LoginPayload): Promise<LoginResult> {
+/**
+ * Logs in with email/password. A verified email gets a challenge (code emailed, no cookies yet);
+ * otherwise the access JWT + opaque refresh are set as HttpOnly cookies right away.
+ */
+export async function loginUser(payload: LoginPayload): Promise<LoginOutcome> {
   const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
     method: "POST",
     credentials: "include",
@@ -203,8 +217,48 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResult> {
     body: JSON.stringify(payload),
   });
 
+  if (response.status === 202) {
+    return { kind: "challenge", challenge: (await response.json()) as LoginChallenge };
+  }
+
+  if (response.ok) {
+    return { kind: "signedIn", result: (await response.json()) as LoginResult };
+  }
+
+  throwApiError(response, await parseErrorBody(response));
+}
+
+/** Submits the emailed code. On success the HttpOnly cookies are set. */
+export async function verifyLoginCode(challengeId: string, code: string): Promise<LoginResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login/verify-code`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ challengeId, code }),
+  });
+
   if (response.ok) {
     return (await response.json()) as LoginResult;
+  }
+
+  throwApiError(response, await parseErrorBody(response));
+}
+
+/** Emails a fresh code for the open challenge. */
+export async function resendLoginCode(challengeId: string): Promise<LoginChallenge> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/login/resend-code`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ challengeId }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as LoginChallenge;
   }
 
   throwApiError(response, await parseErrorBody(response));

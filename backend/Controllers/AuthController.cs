@@ -25,6 +25,7 @@ public sealed class AuthController(
     IOptions<AuthSecurityOptions> authSecurityOptions,
     EmailVerificationService emailVerification,
     PasswordResetService passwordReset,
+    LoginCodeService loginCode,
     IAccountEmailQueue accountEmails,
     ILogger<AuthController> logger,
     IHostEnvironment environment) : ControllerBase
@@ -90,12 +91,17 @@ public sealed class AuthController(
     }
 
     /// <summary>
-    /// Authenticates with email/password and sets HttpOnly access + refresh cookies.
+    /// Authenticates with email/password. A verified email gets a 202 challenge and an emailed code
+    /// (no cookies until the code passes); an unverified one gets the HttpOnly cookies directly.
     /// Rate-limited per IP; locks the account after repeated failed attempts.
     /// </summary>
     [EnableRateLimiting(AuthSecurityExtensions.LoginRateLimitPolicy)]
     [HttpPost("login")]
-    public async Task<ActionResult<LoginResponse>> Login(
+    [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<LoginChallengeResponse>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status423Locked)]
+    public async Task<ActionResult> Login(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
     {
@@ -152,6 +158,67 @@ public sealed class AuthController(
         AuthSecurityExtensions.ClearLoginFailures(user);
         await db.SaveChangesAsync(cancellationToken);
 
+        // The code goes to the verified mailbox, so it only proves anything once that is established.
+        if (user.EmailVerifiedAt is not null)
+        {
+            var challenge = await loginCode.IssueAsync(user, cancellationToken);
+            return Accepted(new LoginChallengeResponse(challenge.ChallengeId, challenge.ResendAvailableAt));
+        }
+
+        return await SignInAsync(user, cancellationToken);
+    }
+
+    /// <summary>
+    /// Consumes the emailed login code and, only then, sets the HttpOnly cookies. Wrong codes
+    /// count toward account lockout and a challenge dies after a few of them.
+    /// </summary>
+    [EnableRateLimiting(AuthSecurityExtensions.VerifyLoginCodeRateLimitPolicy)]
+    [HttpPost("login/verify-code")]
+    [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status423Locked)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult> VerifyLoginCode(
+        [FromBody] VerifyLoginCodeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await loginCode.VerifyAsync(request.ChallengeId, request.Code, cancellationToken);
+        return result.Status switch
+        {
+            LoginCodeStatus.Success => await SignInAsync(result.User!, cancellationToken),
+            LoginCodeStatus.Locked => StatusCode(
+                StatusCodes.Status423Locked,
+                new { message = "Your account is temporarily locked. Please try again later." }),
+            _ => Unauthorized(new { message = "That code is incorrect or has expired. Log in again." }),
+        };
+    }
+
+    /// <summary>
+    /// Emails a fresh code for an open challenge. Short cooldown per challenge plus a per-IP limit.
+    /// </summary>
+    [EnableRateLimiting(AuthSecurityExtensions.ResendLoginCodeRateLimitPolicy)]
+    [HttpPost("login/resend-code")]
+    [ProducesResponseType<LoginChallengeResponse>(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<ActionResult> ResendLoginCode(
+        [FromBody] ResendLoginCodeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await loginCode.ResendAsync(request.ChallengeId, cancellationToken);
+        return result.Status switch
+        {
+            LoginCodeStatus.Success => Accepted(
+                new LoginChallengeResponse(request.ChallengeId, result.ResendAvailableAt!.Value)),
+            LoginCodeStatus.Cooldown => StatusCode(
+                StatusCodes.Status429TooManyRequests,
+                new { message = "Please wait before requesting another code." }),
+            _ => Unauthorized(new { message = "This login has expired. Log in again." }),
+        };
+    }
+
+    private async Task<ActionResult> SignInAsync(User user, CancellationToken cancellationToken)
+    {
         var access = tokenProvider.Create(user);
         var refresh = await refreshTokenService.IssueAsync(user, cancellationToken);
         WriteAuthCookies(access, refresh);

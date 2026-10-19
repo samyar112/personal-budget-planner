@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+    public DbSet<LoginChallenge> LoginChallenges => Set<LoginChallenge>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +46,15 @@ public class AppDbContext : DbContext
             entity.HasOne(token => token.User)
                 .WithMany()
                 .HasForeignKey(token => token.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LoginChallenge>(entity =>
+        {
+            entity.HasIndex(challenge => challenge.UserId);
+            entity.HasOne(challenge => challenge.User)
+                .WithMany()
+                .HasForeignKey(challenge => challenge.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

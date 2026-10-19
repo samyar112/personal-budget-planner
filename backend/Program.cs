@@ -40,6 +40,7 @@ builder.Services.AddSingleton<TokenProvider>();
 builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<EmailVerificationService>();
 builder.Services.AddScoped<PasswordResetService>();
+builder.Services.AddScoped<LoginCodeService>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

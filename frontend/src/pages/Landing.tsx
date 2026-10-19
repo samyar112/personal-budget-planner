@@ -7,7 +7,8 @@ import BrandName, {
 } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import { ApiError, loginUser, registerUser } from "../api/auth";
+import { ApiError, loginUser, registerUser, type LoginChallenge } from "../api/auth";
+import LoginCodeStep from "../components/LoginCodeStep";
 import "./Landing.css";
 
 /** Matches AuthSecurity:LoginWindowSeconds so the UI stops calling /login after 429. */
@@ -106,6 +107,8 @@ const Landing = () => {
   const navigate = useNavigate();
 
   const [isLogin, setIsLogin] = useState(true);
+  /** Set after a correct password when a login code was emailed; no cookies exist yet. */
+  const [challenge, setChallenge] = useState<LoginChallenge | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -146,6 +149,7 @@ const Landing = () => {
   /** Switches Login ↔ Sign Up and resets form, password visibility, and errors. */
   const switchAuthMode = (nextIsLogin: boolean, options?: { preserveSuccess?: boolean }) => {
     setIsLogin(nextIsLogin);
+    setChallenge(null);
     setForm(emptyForm);
     setShowPassword(false);
     setPasswordSubmitted(false);
@@ -278,9 +282,14 @@ const Landing = () => {
         password: form.password,
       });
 
+      if (result.kind === "challenge") {
+        setChallenge(result.challenge);
+        return;
+      }
+
       completeSignIn({
-        name: result.name,
-        email: result.email,
+        name: result.result.name,
+        email: result.result.email,
         provider: "email",
       });
     } catch (err) {
@@ -396,6 +405,20 @@ const Landing = () => {
                   <BrandName layout="stacked" logoSize="md" showLogo />
                 </div>
 
+                {challenge ? (
+                  <LoginCodeStep
+                    email={form.email.trim()}
+                    challenge={challenge}
+                    onVerified={(result) =>
+                      completeSignIn({ name: result.name, email: result.email, provider: "email" })
+                    }
+                    onCancel={() => {
+                      setChallenge(null);
+                      setForm((prev) => ({ ...prev, password: "" }));
+                    }}
+                  />
+                ) : (
+                  <>
                 <ul className="nav nav-pills nav-fill auth-pills mb-4" role="tablist">
                   <li className="nav-item" role="presentation">
                     <button
@@ -619,6 +642,8 @@ const Landing = () => {
                     </button>
                   </p>
                 </form>
+                  </>
+                )}
 
                 <div className="auth-privacy mt-4">
                   🔒 Your data is minimized and protected before AI processing.
