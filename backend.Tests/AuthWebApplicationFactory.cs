@@ -314,3 +314,27 @@ public sealed class RaceWebApplicationFactory : AuthWebApplicationFactory
         });
     }
 }
+
+/// <summary>
+/// Boots the API as Production would see it: Smtp mail, an https frontend URL and a chosen
+/// AllowedHosts. Everything else (database, mail sink) is still swapped for test doubles.
+/// </summary>
+public sealed class ProductionWebApplicationFactory(string allowedHosts) : AuthWebApplicationFactory
+{
+    protected override IReadOnlyDictionary<string, string?> ExtraConfig { get; } =
+        new Dictionary<string, string?>
+        {
+            ["AllowedHosts"] = allowedHosts,
+            ["Email:Provider"] = "Smtp",
+            ["Email:FrontendBaseUrl"] = "https://app.example.com",
+            ["Email:Smtp:Host"] = "smtp.example.com",
+            ["Email:Smtp:Username"] = "user",
+            ["Email:Smtp:Password"] = "not-a-real-password",
+        };
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.UseEnvironment("Production");
+    }
+}
