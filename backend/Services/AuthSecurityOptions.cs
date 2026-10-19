@@ -24,4 +24,13 @@ public sealed class AuthSecurityOptions
 
     /// <summary>Fixed window length for the resend rate limit (seconds).</summary>
     public int ResendWindowSeconds { get; set; } = 300;
+
+    /// <summary>How long an emailed login code stays valid (minutes).</summary>
+    public int LoginCodeMinutes { get; set; } = 10;
+
+    /// <summary>Wrong codes allowed per challenge before it is discarded.</summary>
+    public int LoginCodeMaxAttempts { get; set; } = 5;
+
+    /// <summary>Minimum gap between emailing codes for one challenge (seconds).</summary>
+    public int LoginCodeResendCooldownSeconds { get; set; } = 60;
 }

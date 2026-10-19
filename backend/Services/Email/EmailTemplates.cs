@@ -24,6 +24,23 @@ public static class EmailTemplates
             validFor,
             ignoreNote: "If you did not ask for this, you can ignore this email. Your password has not changed.");
 
+    public static EmailMessage LoginCode(string to, string code, TimeSpan validFor)
+    {
+        const string intro = "Use this code to finish logging in to VaultBudget.";
+        const string ignoreNote =
+            "If this was not you, someone knows your password. Reset it and do not share this code.";
+        var expiry = $"This code expires in {Describe(validFor)}.";
+
+        var text = $"{intro}\n\nCode: {code}\n\n{expiry}\n{ignoreNote}\n";
+        var html = $"""
+            <p>{WebUtility.HtmlEncode(intro)}</p>
+            <p style="font-size:24px;letter-spacing:4px"><strong>{WebUtility.HtmlEncode(code)}</strong></p>
+            <p>{WebUtility.HtmlEncode(expiry)}<br>{WebUtility.HtmlEncode(ignoreNote)}</p>
+            """;
+
+        return new EmailMessage(to, "Your VaultBudget login code", text, html);
+    }
+
     public static EmailMessage GoogleAccountNotice(string to)
     {
         const string body =

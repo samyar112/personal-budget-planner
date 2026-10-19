@@ -121,7 +121,8 @@ public sealed class PasswordResetEndpointTests : IClassFixture<AuthWebApplicatio
         var oldLogin = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, Password));
         var newLogin = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, NewPassword));
         Assert.Equal(HttpStatusCode.Unauthorized, oldLogin.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, newLogin.StatusCode);
+        // Reset verifies the email, so a correct password now reaches the emailed-code step.
+        Assert.Equal(HttpStatusCode.Accepted, newLogin.StatusCode);
     }
 
     [Fact]
@@ -137,7 +138,8 @@ public sealed class PasswordResetEndpointTests : IClassFixture<AuthWebApplicatio
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, second.StatusCode);
         var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, NewPassword));
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        // Reset verifies the email, so a correct password now reaches the emailed-code step.
+        Assert.Equal(HttpStatusCode.Accepted, login.StatusCode);
     }
 
     [Fact]
@@ -229,7 +231,8 @@ public sealed class PasswordResetEndpointTests : IClassFixture<AuthWebApplicatio
         Assert.Equal(0, updated.FailedLoginAttempts);
         Assert.Null(updated.LockoutEnd);
         var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, NewPassword));
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        // Reset verifies the email, so a correct password now reaches the emailed-code step.
+        Assert.Equal(HttpStatusCode.Accepted, login.StatusCode);
     }
 
     [Fact]

@@ -43,3 +43,17 @@ public sealed record ForgotPasswordRequest(string Email);
 
 /// <summary>The raw token from the emailed link plus the new password. Never logged.</summary>
 public sealed record ResetPasswordRequest(string Token, string NewPassword);
+
+
+/// <summary>
+/// Step-up challenge returned instead of cookies when a code has been emailed. The code
+/// itself never appears here.
+/// </summary>
+public sealed record LoginChallengeResponse(
+    Guid ChallengeId,
+    DateTime ResendAvailableAt);
+
+/// <summary>The challenge id from login plus the 6-digit code from the email. Never logged.</summary>
+public sealed record VerifyLoginCodeRequest(Guid ChallengeId, string Code);
+
+public sealed record ResendLoginCodeRequest(Guid ChallengeId);

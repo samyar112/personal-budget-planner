@@ -53,6 +53,8 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
                 ["AuthSecurity:LockoutMinutes"] = "15",
                 ["AuthSecurity:ResendPermitLimit"] = "1000",
                 ["AuthSecurity:ResendWindowSeconds"] = "60",
+                // No cooldown by default so resend tests need not wait; cooldown tests override it.
+                ["AuthSecurity:LoginCodeResendCooldownSeconds"] = "0",
             };
 
             foreach (var (key, value) in ExtraConfig)
@@ -113,6 +115,10 @@ public sealed class CapturingEmailSender : IEmailSender
     /// <summary>Pulls the raw token out of the emailed link.</summary>
     public static string TokenFrom(EmailMessage message) =>
         System.Text.RegularExpressions.Regex.Match(message.TextBody, @"token=([A-Za-z0-9_-]+)").Groups[1].Value;
+
+    /// <summary>Pulls the 6-digit login code out of the message.</summary>
+    public static string CodeFrom(EmailMessage message) =>
+        System.Text.RegularExpressions.Regex.Match(message.TextBody, @"\b(\d{6})\b").Groups[1].Value;
 }
 
 /// <summary>Runs each account email job immediately, so tests need not wait for the worker.</summary>
@@ -164,5 +170,15 @@ public sealed class RateLimitedAuthWebApplicationFactory : AuthWebApplicationFac
             ["AuthSecurity:LoginPermitLimit"] = "3",
             ["AuthSecurity:LoginWindowSeconds"] = "60",
             ["AuthSecurity:ResendPermitLimit"] = "2",
+        };
+}
+
+/// <summary>Factory with a real resend cooldown for issue #54 tests.</summary>
+public sealed class LoginCodeCooldownWebApplicationFactory : AuthWebApplicationFactory
+{
+    protected override IReadOnlyDictionary<string, string?> ExtraConfig { get; } =
+        new Dictionary<string, string?>
+        {
+            ["AuthSecurity:LoginCodeResendCooldownSeconds"] = "60",
         };
 }
