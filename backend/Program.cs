@@ -1,4 +1,7 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
+using backend.Data;
 using backend.Extensions;
 using backend.Models;
 using backend.Services;
@@ -97,6 +100,32 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
                 }
 
                 return Task.CompletedTask;
+            },
+
+            // A signed token outlives deactivation, so confirm the account on every request.
+            // Fails closed: a missing user or bad subject is a 401, and a lookup error never lets the request through.
+            OnTokenValidated = async context =>
+            {
+                var subject = context.Principal?.FindFirstValue(JwtRegisteredClaimNames.Sub)
+                    ?? context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+                if (!Guid.TryParse(subject, out var userId))
+                {
+                    context.Fail("Invalid subject.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var active = await db.Users
+                    .AsNoTracking()
+                    .Where(user => user.Id == userId)
+                    .Select(user => (bool?)user.IsActive)
+                    .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+
+                if (active != true)
+                {
+                    context.Fail("Account is inactive.");
+                }
             },
         };
     });

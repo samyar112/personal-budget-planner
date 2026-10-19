@@ -18,7 +18,7 @@ namespace backend.Tests;
  * 4. verified=false returns only unverified accounts; verified=true only verified ones.
  * 5. Paging returns the requested page size and the total.
  * 6. An admin demoted in the database is refused at once, though the JWT still says Admin.
- * 7. A deactivated admin is refused at once, though the JWT is still valid.
+ * 7. A deactivated admin gets 401 at once, though the JWT is still valid.
  * 8. /me reports the role.
  * 9. Deactivating blocks password login with a clear message, for verified and unverified users.
  * 10. A deactivated user with the wrong password still gets the generic 401, so nothing leaks.
@@ -31,6 +31,9 @@ namespace backend.Tests;
  * 17. The seeder promotes an existing verified account, and nothing else.
  * 18. The seeder never creates an account and ignores unverified ones.
  * 19. A malformed Admin:Email stops the app at startup.
+ * 20. A deactivated user's still-valid JWT is refused at once on an ordinary protected route.
+ * 21. Activating the user again makes the same JWT work, with no new login.
+ * 22. A JWT for a user who no longer exists is refused.
  */
 public sealed class AdminEndpointTests : IClassFixture<AuthWebApplicationFactory>
 {
@@ -138,14 +141,56 @@ public sealed class AdminEndpointTests : IClassFixture<AuthWebApplicationFactory
     }
 
     [Fact]
-    public async Task List_ForDeactivatedAdmin_ReturnsForbiddenDespiteValidJwt()
+    public async Task List_ForDeactivatedAdmin_ReturnsUnauthorizedDespiteValidJwt()
     {
         var (adminId, adminEmail) = await SeedAsync(_factory, UserRole.Admin);
         var client = await SignedInAsync(_factory, adminEmail);
 
         await UpdateAsync(_factory, adminId, user => user.IsActive = false);
 
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/users")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/admin/users")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ProtectedRoute_ForDeactivatedUser_IsRefusedDespiteValidJwt()
+    {
+        var (userId, userEmail) = await SeedAsync(_factory);
+        var client = await SignedInAsync(_factory, userEmail);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/test/verified-only")).StatusCode);
+
+        await UpdateAsync(_factory, userId, user => user.IsActive = false);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/test/verified-only")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ProtectedRoute_AfterReactivation_AcceptsTheSameJwt()
+    {
+        var (userId, userEmail) = await SeedAsync(_factory);
+        var client = await SignedInAsync(_factory, userEmail);
+        await UpdateAsync(_factory, userId, user => user.IsActive = false);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/test/verified-only")).StatusCode);
+
+        await UpdateAsync(_factory, userId, user => user.IsActive = true);
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/test/verified-only")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ProtectedRoute_ForDeletedUser_IsRefusedDespiteValidJwt()
+    {
+        var (userId, userEmail) = await SeedAsync(_factory);
+        var client = await SignedInAsync(_factory, userEmail);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.RefreshTokens.RemoveRange(db.RefreshTokens.Where(token => token.UserId == userId));
+            db.Users.Remove(await db.Users.SingleAsync(user => user.Id == userId));
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/test/verified-only")).StatusCode);
     }
 
     [Fact]
