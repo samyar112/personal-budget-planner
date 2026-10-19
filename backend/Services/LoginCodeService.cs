@@ -43,6 +43,25 @@ public sealed class LoginCodeService(
     /// </summary>
     public async Task<IssuedLoginChallenge> IssueAsync(User user, CancellationToken cancellationToken)
     {
+        // A parallel login for the same account may supersede the same challenges first; start over
+        // from what is now in the database.
+        for (var attempt = 0; attempt < MaxConflictRetries - 1; attempt++)
+        {
+            try
+            {
+                return await TryIssueAsync(user, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                db.ChangeTracker.Clear();
+            }
+        }
+
+        return await TryIssueAsync(user, cancellationToken);
+    }
+
+    private async Task<IssuedLoginChallenge> TryIssueAsync(User user, CancellationToken cancellationToken)
+    {
         var now = DateTime.UtcNow;
 
         var pending = await db.LoginChallenges
@@ -203,9 +222,18 @@ public sealed class LoginCodeService(
         // A code that never went out (mail failure) carries no cooldown.
         challenge.LastSentAt?.AddSeconds(securityOptions.Value.LoginCodeResendCooldownSeconds) ?? now;
 
+    // Derived once per purpose, so the JWT signing key is never used directly as an HMAC key here.
+    private byte[]? _codeKey;
+
+    private byte[] CodeKey => _codeKey ??= HKDF.DeriveKey(
+        HashAlgorithmName.SHA256,
+        Encoding.UTF8.GetBytes(jwtOptions.Value.Key),
+        outputLength: 32,
+        info: Encoding.UTF8.GetBytes("vaultbudget:login-code:v1"));
+
     private string Hash(Guid challengeId, string code)
     {
-        using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(jwtOptions.Value.Key));
+        using var hmac = new HMACSHA256(CodeKey);
         return Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes($"{challengeId:N}:{code}")));
     }
 }

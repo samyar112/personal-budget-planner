@@ -76,6 +76,28 @@ public sealed class PasswordResetService(
         string newPassword,
         CancellationToken cancellationToken)
     {
+        // A refresh that rotated a session mid-reset would otherwise leave a live token behind, so a
+        // conflict re-reads the sessions and revokes again.
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                return await TryResetAsync(rawToken, newPassword, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                db.ChangeTracker.Clear();
+            }
+        }
+
+        return await TryResetAsync(rawToken, newPassword, cancellationToken);
+    }
+
+    private async Task<ResetPasswordResult> TryResetAsync(
+        string? rawToken,
+        string newPassword,
+        CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(rawToken))
         {
             return ResetPasswordResult.Invalid;
