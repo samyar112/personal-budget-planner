@@ -52,6 +52,9 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<LoginChallenge>(entity =>
         {
             entity.HasIndex(challenge => challenge.UserId);
+            // Two requests must not both spend the same attempt or the same code.
+            entity.Property(challenge => challenge.Attempts).IsConcurrencyToken();
+            entity.Property(challenge => challenge.UsedAt).IsConcurrencyToken();
             entity.HasOne(challenge => challenge.User)
                 .WithMany()
                 .HasForeignKey(challenge => challenge.UserId)

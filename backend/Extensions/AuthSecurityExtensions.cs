@@ -13,6 +13,7 @@ public static class AuthSecurityExtensions
     public const string ForgotPasswordRateLimitPolicy = "forgot-password";
     public const string VerifyLoginCodeRateLimitPolicy = "verify-login-code";
     public const string ResendLoginCodeRateLimitPolicy = "resend-login-code";
+    public const string RegisterRateLimitPolicy = "register";
     public const string VerifiedEmailPolicy = "VerifiedEmail";
 
     public static IServiceCollection AddAuthSecurity(this IServiceCollection services, IConfiguration configuration)
@@ -112,6 +113,24 @@ public static class AuthSecurityExtensions
                     {
                         PermitLimit = security.LoginPermitLimit,
                         Window = TimeSpan.FromSeconds(security.LoginWindowSeconds),
+                        QueueLimit = 0,
+                        AutoReplenishment = true,
+                    });
+            });
+
+            // Each signup emails an arbitrary address, so it shares the resend limits.
+            options.AddPolicy(RegisterRateLimitPolicy, httpContext =>
+            {
+                var security = httpContext.RequestServices
+                    .GetRequiredService<IOptions<AuthSecurityOptions>>()
+                    .Value;
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = security.ResendPermitLimit,
+                        Window = TimeSpan.FromSeconds(security.ResendWindowSeconds),
                         QueueLimit = 0,
                         AutoReplenishment = true,
                     });

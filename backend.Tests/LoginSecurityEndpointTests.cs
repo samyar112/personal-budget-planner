@@ -10,7 +10,7 @@ namespace backend.Tests;
 /*
  * Test cases:
  * 1. More login attempts than the IP limit returns 429.
- * 2. Five failed passwords lock the account and notify the user (423).
+ * 2. Five failed passwords lock the account; a locked account is indistinguishable from a wrong password (401).
  * 3. After the lockout window expires, a correct password can sign in again.
  */
 public sealed class LoginSecurityEndpointTests
@@ -43,7 +43,7 @@ public sealed class LoginSecurityEndpointTests
     }
 
     [Fact]
-    public async Task Login_FiveFailedAttempts_LocksAccountAndNotifiesUser()
+    public async Task Login_FiveFailedAttempts_LocksAccountWithoutRevealingIt()
     {
         await using var factory = new AuthWebApplicationFactory();
         var client = factory.CreateClient();
@@ -64,17 +64,17 @@ public sealed class LoginSecurityEndpointTests
         }
 
         Assert.NotNull(lastFail);
-        Assert.Equal(HttpStatusCode.Locked, lastFail.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, lastFail.StatusCode);
 
         var lockBody = await lastFail.Content.ReadFromJsonAsync<ErrorBody>(JsonOptions);
         Assert.NotNull(lockBody);
-        Assert.Contains("locked", lockBody.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Invalid email or password.", lockBody.Message);
 
-        // Correct password still rejected while locked.
+        // Correct password still rejected while locked, with the same answer.
         var whileLocked = await client.PostAsJsonAsync(
             "/api/auth/login",
             new LoginRequest(email, password));
-        Assert.Equal(HttpStatusCode.Locked, whileLocked.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, whileLocked.StatusCode);
     }
 
     [Fact]

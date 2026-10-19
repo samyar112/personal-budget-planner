@@ -34,6 +34,8 @@ public sealed class LoginCodeService(
     IOptions<JwtOptions> jwtOptions,
     ILogger<LoginCodeService> logger)
 {
+    private const int MaxConflictRetries = 3;
+
     /// <summary>
     /// Starts a challenge, superseding any unused ones, and emails the code. A mail failure is
     /// logged, not thrown: the challenge exists and the user can resend (no cooldown is recorded
@@ -58,7 +60,31 @@ public sealed class LoginCodeService(
         return new IssuedLoginChallenge(created.Id, ResendAvailableAt(created, now));
     }
 
+    /// <summary>
+    /// Checks a code. Attempts and use are concurrency tokens, so parallel guesses cannot all be
+    /// counted against the same stale value: the loser reloads and is judged on the current row.
+    /// </summary>
     public async Task<LoginCodeResult> VerifyAsync(
+        Guid challengeId,
+        string? code,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < MaxConflictRetries; attempt++)
+        {
+            try
+            {
+                return await TryVerifyAsync(challengeId, code, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                db.ChangeTracker.Clear();
+            }
+        }
+
+        return new LoginCodeResult(LoginCodeStatus.Invalid);
+    }
+
+    private async Task<LoginCodeResult> TryVerifyAsync(
         Guid challengeId,
         string? code,
         CancellationToken cancellationToken)
@@ -122,7 +148,16 @@ public sealed class LoginCodeService(
             return new LoginCodeResult(LoginCodeStatus.Cooldown, ResendAvailableAt: availableAt);
         }
 
-        await SendNewCodeAsync(challenge, challenge.User, now, cancellationToken);
+        try
+        {
+            await SendNewCodeAsync(challenge, challenge.User, now, cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // The challenge was spent or guessed against while this resend was in flight.
+            return new LoginCodeResult(LoginCodeStatus.Invalid);
+        }
+
         return new LoginCodeResult(
             LoginCodeStatus.Success,
             ResendAvailableAt: ResendAvailableAt(challenge, now));

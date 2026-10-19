@@ -30,9 +30,19 @@ public sealed class AuthController(
     ILogger<AuthController> logger,
     IHostEnvironment environment) : ControllerBase
 {
+    private const string InvalidCredentialsMessage = "Invalid email or password.";
+
+    private static readonly User DummyUser = new() { Email = string.Empty, Name = string.Empty };
+    private static string? _dummyHash;
+
+    private static string DummyHash(IPasswordHasher<User> hasher) =>
+        LazyInitializer.EnsureInitialized(ref _dummyHash, () => hasher.HashPassword(DummyUser, "Dummy-Password-1"));
+
     /// <summary>
     /// Registers a new user with email/password. Passwords are hashed before storage.
+    /// Rate-limited per IP because every signup sends an email to an address of the caller's choosing.
     /// </summary>
+    [EnableRateLimiting(AuthSecurityExtensions.RegisterRateLimitPolicy)]
     [HttpPost("register")]
     public async Task<ActionResult<RegisterResponse>> Register(
         [FromBody] RegisterRequest request,
@@ -93,14 +103,14 @@ public sealed class AuthController(
     /// <summary>
     /// Authenticates with email/password. A verified email gets a 202 challenge and an emailed code
     /// (no cookies until the code passes); an unverified one gets the HttpOnly cookies directly.
-    /// Rate-limited per IP; locks the account after repeated failed attempts.
+    /// Rate-limited per IP; locks the account after repeated failed attempts. A locked account
+    /// answers exactly like a wrong password, so the response never confirms an account exists.
     /// </summary>
     [EnableRateLimiting(AuthSecurityExtensions.LoginRateLimitPolicy)]
     [HttpPost("login")]
     [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<LoginChallengeResponse>(StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status423Locked)]
     public async Task<ActionResult> Login(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
@@ -122,42 +132,31 @@ public sealed class AuthController(
             candidate => candidate.Email == email,
             cancellationToken);
 
-        // Same message whether missing user or bad password — avoid account enumeration.
-        if (user is null || string.IsNullOrEmpty(user.PasswordHash))
-        {
-            return Unauthorized(new { message = "Invalid email or password." });
-        }
-
-        if (AuthSecurityExtensions.IsLockedOut(user, DateTime.UtcNow))
-        {
-            return StatusCode(
-                StatusCodes.Status423Locked,
-                new { message = "Your account is temporarily locked. Please try again later." });
-        }
-
+        // Every path below does one password verification and answers 401 with the same message,
+        // so neither the body, the status nor the response time says whether the account exists
+        // or is locked. A dummy hash stands in when there is nothing real to check.
+        var hasPassword = user is not null && !string.IsNullOrEmpty(user.PasswordHash);
         var verification = passwordHasher.VerifyHashedPassword(
-            user,
-            user.PasswordHash,
+            user ?? DummyUser,
+            hasPassword ? user!.PasswordHash! : DummyHash(passwordHasher),
             request.Password);
+
+        if (user is null || !hasPassword || AuthSecurityExtensions.IsLockedOut(user, DateTime.UtcNow))
+        {
+            return Unauthorized(new { message = InvalidCredentialsMessage });
+        }
 
         if (verification == PasswordVerificationResult.Failed)
         {
             AuthSecurityExtensions.RegisterFailedLogin(user, security);
             await db.SaveChangesAsync(cancellationToken);
 
-            if (AuthSecurityExtensions.IsLockedOut(user, DateTime.UtcNow))
-            {
-                return StatusCode(
-                    StatusCodes.Status423Locked,
-                    new { message = "Your account is temporarily locked. Please try again later." });
-            }
-
-            return Unauthorized(new { message = "Invalid email or password." });
+            return Unauthorized(new { message = InvalidCredentialsMessage });
         }
 
-        AuthSecurityExtensions.ClearLoginFailures(user);
-        await db.SaveChangesAsync(cancellationToken);
-
+        // A verified user still owes the emailed code, and wrong codes count toward the same
+        // lockout, so only the code step may clear the failures. Clearing here would hand someone
+        // who knows the password a fresh batch of guesses on every login.
         // The code goes to the verified mailbox, so it only proves anything once that is established.
         if (user.EmailVerifiedAt is not null)
         {
@@ -165,6 +164,8 @@ public sealed class AuthController(
             return Accepted(new LoginChallengeResponse(challenge.ChallengeId, challenge.ResendAvailableAt));
         }
 
+        AuthSecurityExtensions.ClearLoginFailures(user);
+        await db.SaveChangesAsync(cancellationToken);
         return await SignInAsync(user, cancellationToken);
     }
 

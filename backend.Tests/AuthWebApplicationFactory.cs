@@ -1,8 +1,10 @@
 using backend.Data;
 using backend.Extensions;
+using backend.Models;
 using backend.Services;
 using backend.Services.Email;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -181,4 +183,39 @@ public sealed class LoginCodeCooldownWebApplicationFactory : AuthWebApplicationF
         {
             ["AuthSecurity:LoginCodeResendCooldownSeconds"] = "60",
         };
+}
+
+/// <summary>Counts password verifications so tests can prove login always does the hashing work.</summary>
+public sealed class CountingPasswordHasher : IPasswordHasher<User>
+{
+    private readonly PasswordHasher<User> _inner = new();
+    private int _verifications;
+
+    public int Verifications => Volatile.Read(ref _verifications);
+
+    public string HashPassword(User user, string password) => _inner.HashPassword(user, password);
+
+    public PasswordVerificationResult VerifyHashedPassword(User user, string hashedPassword, string providedPassword)
+    {
+        Interlocked.Increment(ref _verifications);
+        return _inner.VerifyHashedPassword(user, hashedPassword, providedPassword);
+    }
+}
+
+/// <summary>Factory that swaps in <see cref="CountingPasswordHasher"/>.</summary>
+public sealed class CountingHasherWebApplicationFactory : AuthWebApplicationFactory
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IPasswordHasher<User>>();
+            services.AddSingleton<CountingPasswordHasher>();
+            services.AddSingleton<IPasswordHasher<User>>(
+                provider => provider.GetRequiredService<CountingPasswordHasher>());
+        });
+    }
+
+    public CountingPasswordHasher Hasher => Services.GetRequiredService<CountingPasswordHasher>();
 }

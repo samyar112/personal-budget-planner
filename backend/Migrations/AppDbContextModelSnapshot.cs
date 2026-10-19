@@ -61,6 +61,7 @@ namespace backend.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int>("Attempts")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<string>("CodeHash")
@@ -77,6 +78,7 @@ namespace backend.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("UsedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UserId")
