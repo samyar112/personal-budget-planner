@@ -10,6 +10,12 @@ public static partial class AuthValidation
     private static readonly Regex EmailPattern = EmailRegex();
     private static readonly Regex NamePattern = NameRegex();
 
+    /// <summary>Caps the work a single request can force on the password hasher.</summary>
+    public const int MaxPasswordLength = 128;
+
+    /// <summary>The practical maximum length of an email address (RFC 5321).</summary>
+    public const int MaxEmailLength = 254;
+
     public static Dictionary<string, string> ValidateRegister(
         string firstName,
         string lastName,
@@ -56,6 +62,10 @@ public static partial class AuthValidation
         {
             errors["password"] = "Password is required.";
         }
+        else if (password.Length > MaxPasswordLength)
+        {
+            errors["password"] = "Password is too long.";
+        }
 
         return errors;
     }
@@ -70,10 +80,14 @@ public static partial class AuthValidation
         {
             errors["email"] = "Please enter a valid email address.";
         }
+        else if (email.Trim().Length > MaxEmailLength)
+        {
+            errors["email"] = "Email must be 254 characters or less.";
+        }
     }
 
     public static bool IsPasswordValid(string password) =>
-        password.Length >= 8
+        password.Length is >= 8 and <= MaxPasswordLength
         && password.Any(char.IsUpper)
         && password.Any(char.IsLower)
         && password.Any(char.IsDigit)

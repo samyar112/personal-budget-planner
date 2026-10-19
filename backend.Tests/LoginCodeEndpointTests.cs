@@ -26,6 +26,8 @@ namespace backend.Tests;
  * 13. Resend after the cooldown emails a new code and the old one stops working.
  * 14. Verify-code is rate limited.
  * 15. Resend-code is rate limited.
+ * 16. A correct password does not reset the failures that wrong codes have already racked up.
+ * 17. Two writers cannot both change the same challenge (concurrency token).
  */
 public sealed class LoginCodeEndpointTests : IClassFixture<AuthWebApplicationFactory>
 {
@@ -173,7 +175,51 @@ public sealed class LoginCodeEndpointTests : IClassFixture<AuthWebApplicationFac
 
         var login = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(email, Password));
 
-        Assert.Equal(HttpStatusCode.Locked, login.StatusCode);
+        // Login answers a locked account like a wrong password; the lock itself is still in force.
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+        using var scope = _factory.Services.CreateScope();
+        var user = await scope.ServiceProvider.GetRequiredService<AppDbContext>()
+            .Users.SingleAsync(candidate => candidate.Email == email);
+        Assert.True(user.LockoutEnd > DateTime.UtcNow);
+    }
+
+    [Fact]
+    public async Task VerifyCode_CorrectPasswordDoesNotResetFailuresFromWrongCodes()
+    {
+        var (client, email) = await VerifiedUserAsync(_factory);
+        var (challengeId, code) = await StartChallengeAsync(client, _factory, email);
+        for (var i = 0; i < 4; i++)
+        {
+            await client.PostAsJsonAsync(
+                "/api/auth/login/verify-code", new VerifyLoginCodeRequest(challengeId, WrongCode(code)));
+        }
+
+        // A fresh login must not hand an attacker who knows the password a new guess budget.
+        var (newChallenge, newCode) = await StartChallengeAsync(client, _factory, email);
+        var fifthFailure = await client.PostAsJsonAsync(
+            "/api/auth/login/verify-code", new VerifyLoginCodeRequest(newChallenge, WrongCode(newCode)));
+
+        Assert.Equal(HttpStatusCode.Locked, fifthFailure.StatusCode);
+    }
+
+    [Fact]
+    public async Task LoginChallenge_TwoWritersCannotBothChangeIt()
+    {
+        var (client, email) = await VerifiedUserAsync(_factory);
+        var (challengeId, _) = await StartChallengeAsync(client, _factory, email);
+
+        using var firstScope = _factory.Services.CreateScope();
+        using var secondScope = _factory.Services.CreateScope();
+        var first = await firstScope.ServiceProvider.GetRequiredService<AppDbContext>()
+            .LoginChallenges.SingleAsync(row => row.Id == challengeId);
+        var secondDb = secondScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var second = await secondDb.LoginChallenges.SingleAsync(row => row.Id == challengeId);
+
+        first.Attempts += 1;
+        await firstScope.ServiceProvider.GetRequiredService<AppDbContext>().SaveChangesAsync();
+        second.Attempts += 1;
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => secondDb.SaveChangesAsync());
     }
 
     [Fact]
