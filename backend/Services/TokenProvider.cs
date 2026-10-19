@@ -15,6 +15,7 @@ public sealed record TokenResult(string AccessToken, DateTime ExpiresAt);
 public sealed class TokenProvider(IOptions<JwtOptions> jwtOptions)
 {
     public const string EmailVerifiedClaim = "email_verified";
+    public const string RoleClaim = "role";
 
     private readonly JwtOptions _options = jwtOptions.Value;
 
@@ -33,6 +34,7 @@ public sealed class TokenProvider(IOptions<JwtOptions> jwtOptions)
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Name, user.Name),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new(RoleClaim, user.Role.ToString()),
         };
 
         // Read by the VerifiedEmail policy. Stale until the next refresh after verifying.

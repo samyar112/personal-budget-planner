@@ -70,7 +70,7 @@ public sealed class RefreshTokenService(
             .Include(token => token.User)
             .FirstOrDefaultAsync(token => token.TokenHash == hash, cancellationToken);
 
-        if (existing is null || existing.ExpiresAt <= DateTime.UtcNow)
+        if (existing is null || existing.ExpiresAt <= DateTime.UtcNow || !existing.User.IsActive)
         {
             return null;
         }

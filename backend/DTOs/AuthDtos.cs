@@ -28,11 +28,15 @@ public sealed record LoginResponse(
 /// </summary>
 public sealed record RefreshResponse(DateTime ExpiresAt);
 
+/// <summary>
+/// Role is for showing or hiding admin navigation only. The API enforces access itself.
+/// </summary>
 public sealed record MeResponse(
     Guid Id,
     string Email,
     string Name,
-    bool EmailVerified);
+    bool EmailVerified,
+    string Role);
 
 /// <summary>The raw token from the emailed link. Never logged or stored.</summary>
 public sealed record VerifyEmailRequest(string Token);

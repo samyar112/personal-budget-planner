@@ -10,11 +10,15 @@ const Home = () => {
   const financialScore = 84;
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // The Google stub session has no API user; nothing to prompt for then.
     fetchCurrentUser()
-      .then((me) => setUnverifiedEmail(me.emailVerified ? null : me.email))
+      .then((me) => {
+        setUnverifiedEmail(me.emailVerified ? null : me.email);
+        setIsAdmin(me.role === "Admin");
+      })
       .catch(() => setUnverifiedEmail(null));
   }, []);
 
@@ -76,6 +80,14 @@ const Home = () => {
                   Insights
                 </a>
               </li>
+
+              {isAdmin && (
+                <li className="nav-item">
+                  <Link className="nav-link" to="/admin/users">
+                    Admin
+                  </Link>
+                </li>
+              )}
 
               <li className="nav-item">
                 <button

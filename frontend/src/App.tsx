@@ -7,25 +7,27 @@ import Home from "./pages/Home";
 import VerifyEmail from "./pages/VerifyEmail";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AdminUsers from "./pages/AdminUsers";
 
 /**
  * Allows /home only when /api/auth/me succeeds (HttpOnly cookie),
- * or when the temporary Google stub flag is set.
+ * or when the temporary Google stub flag is set. With `adminOnly`, also requires the Admin role
+ * and never honours the stub. This only decides what to show: the API enforces admin access itself.
  */
-const RequireAuth = ({ children }: { children: ReactNode }) => {
-  const [status, setStatus] = useState<"loading" | "ok" | "deny">("loading");
+const RequireAuth = ({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) => {
+  const [status, setStatus] = useState<"loading" | "ok" | "deny" | "notAdmin">("loading");
 
   useEffect(() => {
     let cancelled = false;
 
     const verify = async () => {
       try {
-        await fetchCurrentUser();
-        if (!cancelled) setStatus("ok");
+        const me = await fetchCurrentUser();
+        if (!cancelled) setStatus(adminOnly && me.role !== "Admin" ? "notAdmin" : "ok");
       } catch {
         // Dev-only: lets the client-side Google stub reach /home. It is a localStorage flag anyone can
         // set, so it must never grant access in a production build (Vite strips this branch there).
-        if (import.meta.env.DEV && localStorage.getItem(AUTH_GOOGLE_STUB_KEY) === "true") {
+        if (!adminOnly && import.meta.env.DEV && localStorage.getItem(AUTH_GOOGLE_STUB_KEY) === "true") {
           if (!cancelled) setStatus("ok");
           return;
         }
@@ -39,7 +41,7 @@ const RequireAuth = ({ children }: { children: ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [adminOnly]);
 
   if (status === "loading") {
     return (
@@ -51,6 +53,10 @@ const RequireAuth = ({ children }: { children: ReactNode }) => {
 
   if (status === "deny") {
     return <Navigate to="/" replace />;
+  }
+
+  if (status === "notAdmin") {
+    return <Navigate to="/home" replace />;
   }
 
   return children;
@@ -66,6 +72,14 @@ const App = () => {
           element={
             <RequireAuth>
               <Home />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <RequireAuth adminOnly>
+              <AdminUsers />
             </RequireAuth>
           }
         />

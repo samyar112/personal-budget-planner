@@ -41,6 +41,8 @@ export type MeResult = {
   email: string;
   name: string;
   emailVerified: boolean;
+  /** For showing or hiding admin navigation only; the API enforces access itself. */
+  role: "User" | "Admin";
 };
 
 export type ApiFieldErrors = Partial<
@@ -86,6 +88,14 @@ function throwApiError(response: Response, body: unknown): never {
 
   if (response.status === 401) {
     throw new ApiError(messageFromBody ?? "Invalid email or password.", response.status);
+  }
+
+  // A deactivated account: the API says so only once the password was right.
+  if (response.status === 403) {
+    throw new ApiError(
+      messageFromBody ?? "This account has been deactivated. Contact an administrator.",
+      response.status,
+    );
   }
 
   if (response.status === 423) {
