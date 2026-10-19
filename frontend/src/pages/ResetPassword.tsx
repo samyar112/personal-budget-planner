@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ApiError, resetPassword } from "../api/auth";
 import AmbientBackground from "../components/AmbientBackground";
 import BrandName from "../components/BrandName";
+import { useUrlToken } from "../components/useUrlToken";
 
 /** Mirrors the server rule (AuthValidation.IsPasswordValid) and the signup checklist. */
 const isStrongPassword = (password: string) =>
@@ -19,8 +20,7 @@ const RULES_HINT =
  * Landing page for the emailed link: /reset-password?token=...
  */
 const ResetPassword = () => {
-  const [params] = useSearchParams();
-  const token = params.get("token") ?? "";
+  const token = useUrlToken();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);

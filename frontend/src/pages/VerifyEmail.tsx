@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ApiError, refreshSession, resendVerification, verifyEmail } from "../api/auth";
 import AmbientBackground from "../components/AmbientBackground";
 import BrandName from "../components/BrandName";
+import { useUrlToken } from "../components/useUrlToken";
 
 type Status =
   | { kind: "verifying" }
@@ -13,8 +14,7 @@ type Status =
  * Landing page for the emailed link: /verify-email?token=...
  */
 const VerifyEmail = () => {
-  const [params] = useSearchParams();
-  const token = params.get("token") ?? "";
+  const token = useUrlToken();
   const [status, setStatus] = useState<Status>(
     token
       ? { kind: "verifying" }

@@ -42,6 +42,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddAuthSecurity(builder.Configuration);
 builder.Services.AddEmail(builder.Configuration);
+builder.Services.AddHostValidation();
 
 builder.Services
     .AddOptions<JwtOptions>()
@@ -120,6 +121,7 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseForwardedHeaders();
+app.UseSecurityHeaders();
 
 if (app.Environment.IsDevelopment())
 {
