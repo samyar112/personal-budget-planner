@@ -23,7 +23,9 @@ const RequireAuth = ({ children }: { children: ReactNode }) => {
         await fetchCurrentUser();
         if (!cancelled) setStatus("ok");
       } catch {
-        if (localStorage.getItem(AUTH_GOOGLE_STUB_KEY) === "true") {
+        // Dev-only: lets the client-side Google stub reach /home. It is a localStorage flag anyone can
+        // set, so it must never grant access in a production build (Vite strips this branch there).
+        if (import.meta.env.DEV && localStorage.getItem(AUTH_GOOGLE_STUB_KEY) === "true") {
           if (!cancelled) setStatus("ok");
           return;
         }
