@@ -41,6 +41,23 @@ public static class EmailTemplates
         return new EmailMessage(to, "Your VaultBudget login code", text, html);
     }
 
+    public static EmailMessage AccountExists(string to, string loginUrl)
+    {
+        const string body =
+            "Someone tried to create a VaultBudget account with this email address, but you already have one. "
+            + "If that was you, log in instead, or reset your password if you have forgotten it.";
+        const string ignoreNote = "If it was not you, you can ignore this email. Your account has not changed.";
+
+        var text = $"{body}\n\nLog in: {loginUrl}\n\n{ignoreNote}\n";
+        var html = $"""
+            <p>{WebUtility.HtmlEncode(body)}</p>
+            <p><a href="{WebUtility.HtmlEncode(loginUrl)}">Log in</a></p>
+            <p>{WebUtility.HtmlEncode(ignoreNote)}</p>
+            """;
+
+        return new EmailMessage(to, "You already have a VaultBudget account", text, html);
+    }
+
     public static EmailMessage GoogleAccountNotice(string to)
     {
         const string body =

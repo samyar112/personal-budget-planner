@@ -27,7 +27,6 @@ public sealed class AuthController(
     PasswordResetService passwordReset,
     LoginCodeService loginCode,
     IAccountEmailQueue accountEmails,
-    ILogger<AuthController> logger,
     IHostEnvironment environment) : ControllerBase
 {
     private const string InvalidCredentialsMessage = "Invalid email or password.";
@@ -40,7 +39,9 @@ public sealed class AuthController(
 
     /// <summary>
     /// Registers a new user with email/password. Passwords are hashed before storage.
-    /// Rate-limited per IP because every signup sends an email to an address of the caller's choosing.
+    /// Always answers 201, whether or not the address already has an account, so it cannot be used
+    /// to discover registered emails. Rate-limited per IP because every signup sends an email to an
+    /// address of the caller's choosing.
     /// </summary>
     [EnableRateLimiting(AuthSecurityExtensions.RegisterRateLimitPolicy)]
     [HttpPost("register")]
@@ -64,16 +65,10 @@ public sealed class AuthController(
             return ValidationProblem(ModelState);
         }
 
+        // A new and an existing address get the same 201, do the same hashing and both hand their
+        // email to the background queue, so neither the response nor its timing says which one it was.
+        // The owner of an existing address is told by email instead.
         var email = request.Email.Trim().ToLowerInvariant();
-        var emailTaken = await db.Users.AnyAsync(
-            user => user.Email == email,
-            cancellationToken);
-
-        if (emailTaken)
-        {
-            return Conflict(new { message = "An account with this email already exists." });
-        }
-
         var fullName = $"{request.FirstName.Trim()} {request.LastName.Trim()}";
         var user = new User
         {
@@ -82,22 +77,32 @@ public sealed class AuthController(
         };
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
 
-        db.Users.Add(user);
-        await db.SaveChangesAsync(cancellationToken);
+        var created = !await db.Users.AnyAsync(candidate => candidate.Email == email, cancellationToken);
+        if (created)
+        {
+            db.Users.Add(user);
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                // Lost a race with another signup for the same address: it is an existing account now.
+                db.Entry(user).State = EntityState.Detached;
+                created = false;
+            }
+        }
 
         // A mail failure must not undo the signup; the user can request a resend.
-        try
-        {
-            await emailVerification.SendAsync(user, cancellationToken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            logger.LogError(exception, "Verification email failed for user {UserId}.", user.Id);
-        }
+        await accountEmails.EnqueueAsync(
+            new AccountEmailJob(
+                created ? AccountEmailKind.VerificationResend : AccountEmailKind.RegistrationNotice,
+                email),
+            cancellationToken);
 
         return Created(
             $"/api/auth/register/{user.Id}",
-            new RegisterResponse(user.Id, user.Email, user.Name));
+            new RegisterResponse(user.Id, email, fullName));
     }
 
     /// <summary>

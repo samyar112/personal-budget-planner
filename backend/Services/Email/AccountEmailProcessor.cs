@@ -1,5 +1,6 @@
 using backend.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace backend.Services.Email;
 
@@ -11,6 +12,8 @@ public sealed class AccountEmailProcessor(
     AppDbContext db,
     PasswordResetService passwordReset,
     EmailVerificationService emailVerification,
+    IEmailSender emailSender,
+    IOptions<EmailOptions> emailOptions,
     ILogger<AccountEmailProcessor> logger)
 {
     public async Task ProcessAsync(AccountEmailJob job, CancellationToken cancellationToken)
@@ -33,6 +36,11 @@ public sealed class AccountEmailProcessor(
                     break;
                 case AccountEmailKind.VerificationResend when user.EmailVerifiedAt is null:
                     await emailVerification.SendAsync(user, cancellationToken);
+                    break;
+                case AccountEmailKind.RegistrationNotice:
+                    await emailSender.SendAsync(
+                        EmailTemplates.AccountExists(user.Email, emailOptions.Value.FrontendBaseUrl),
+                        cancellationToken);
                     break;
             }
         }

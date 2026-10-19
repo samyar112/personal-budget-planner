@@ -4,6 +4,7 @@ public enum AccountEmailKind
 {
     PasswordReset,
     VerificationResend,
+    RegistrationNotice,
 }
 
 /// <summary>
