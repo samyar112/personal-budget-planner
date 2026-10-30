@@ -61,6 +61,11 @@ builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<EmailVerificationService>();
 builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<LoginCodeService>();
+builder.Services.AddScoped<LedgerSeeder>();
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<LedgerSeedHostedService>();
+}
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
