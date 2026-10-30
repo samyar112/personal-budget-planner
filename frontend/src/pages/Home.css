@@ -527,3 +527,9 @@
   color: var(--destructive);
   border: 1px solid var(--destructive-border);
 }
+
+.summary-card__window {
+  font-size: 0.7rem;
+  font-weight: 400;
+  opacity: 0.7;
+}
