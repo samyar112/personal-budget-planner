@@ -121,17 +121,45 @@ public sealed class FakePlaidClient : IPlaidClient
 
     public System.Collections.Concurrent.ConcurrentBag<Guid> LinkTokenUsers { get; } = [];
 
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, System.Collections.Concurrent.ConcurrentQueue<Func<PlaidSyncPage>>> _syncPages = new();
+
+    /// <summary>Every sync call, in order, with the cursor it was given.</summary>
+    public System.Collections.Concurrent.ConcurrentQueue<(string AccessToken, string? Cursor)> SyncCalls { get; } = new();
+
     /// <summary>Registers what Plaid will return for <paramref name="publicToken"/>.</summary>
-    public PlaidExchangeResult AddItem(string publicToken, string institution, params (string Id, string Name)[] accounts)
+    public PlaidExchangeResult AddItem(string publicToken, string institution, params (string Id, string Name)[] accounts) =>
+        AddItem(publicToken, institution, accounts.Select(account => new PlaidAccount(account.Id, account.Name)).ToArray());
+
+    public PlaidExchangeResult AddItem(string publicToken, string institution, params PlaidAccount[] accounts)
     {
         var exchange = new PlaidExchangeResult($"access-sandbox-{Guid.NewGuid():N}", $"item-{Guid.NewGuid():N}");
-        var details = new PlaidItemDetails(
-            "ins_test",
-            institution,
-            accounts.Select(account => new PlaidAccount(account.Id, account.Name)).ToList());
+        var details = new PlaidItemDetails("ins_test", institution, accounts);
         _items[publicToken] = (exchange, details);
         _byAccessToken[exchange.AccessToken] = details;
         return exchange;
+    }
+
+    /// <summary>Queues the next page <see cref="SyncTransactionsAsync"/> returns for this access token.</summary>
+    public void EnqueueSync(string accessToken, PlaidSyncPage page) =>
+        _syncPages.GetOrAdd(accessToken, _ => new()).Enqueue(() => page);
+
+    /// <summary>Queues a Plaid error for the next sync call on this access token.</summary>
+    public void EnqueueSyncFailure(
+        string accessToken,
+        string errorCode = "INTERNAL_SERVER_ERROR",
+        System.Net.HttpStatusCode status = System.Net.HttpStatusCode.InternalServerError) =>
+        _syncPages.GetOrAdd(accessToken, _ => new()).Enqueue(() => throw new PlaidException(status, errorCode, "req-test"));
+
+    /// <summary>Plays queued pages in order; with none queued, reports no changes and keeps the cursor.</summary>
+    public Task<PlaidSyncPage> SyncTransactionsAsync(string accessToken, string? cursor, CancellationToken cancellationToken)
+    {
+        SyncCalls.Enqueue((accessToken, cursor));
+        if (_syncPages.TryGetValue(accessToken, out var queue) && queue.TryDequeue(out var next))
+        {
+            return Task.FromResult(next());
+        }
+
+        return Task.FromResult(new PlaidSyncPage([], [], [], cursor ?? "cursor-empty", false));
     }
 
     public Task<string> CreateLinkTokenAsync(Guid userId, CancellationToken cancellationToken)

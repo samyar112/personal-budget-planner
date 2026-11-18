@@ -94,6 +94,8 @@ public class AppDbContext : DbContext
             entity.Property(account => account.Name).HasMaxLength(200);
             entity.Property(account => account.Institution).HasMaxLength(200);
             entity.Property(account => account.PlaidAccountId).HasMaxLength(200);
+            entity.Property(account => account.Mask).HasMaxLength(10);
+            entity.Property(account => account.Type).HasMaxLength(20);
             entity.HasIndex(account => account.UserId);
             // An exchange matches existing rows on (user, Plaid account id); null ids never collide.
             entity.HasIndex(account => new { account.UserId, account.PlaidAccountId }).IsUnique();
@@ -116,6 +118,9 @@ public class AppDbContext : DbContext
             entity.Property(item => item.EncryptedAccessToken).HasMaxLength(1000);
             entity.Property(item => item.InstitutionId).HasMaxLength(100);
             entity.Property(item => item.InstitutionName).HasMaxLength(200);
+            entity.Property(item => item.SyncCursor).HasMaxLength(1000);
+            // Of two syncs racing on one item only the first may save; the loser's cursor is discarded.
+            entity.Property(item => item.LastSyncedAt).IsConcurrencyToken();
             entity.HasIndex(item => item.ItemId).IsUnique();
             entity.HasIndex(item => item.UserId);
             entity.HasOne(item => item.User)

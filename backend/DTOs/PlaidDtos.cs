@@ -14,4 +14,21 @@ public sealed record PlaidExchangeResponse(
     string? Institution,
     IReadOnlyList<LinkedAccountResponse> Accounts);
 
-public sealed record LinkedAccountResponse(Guid Id, string Name);
+/// <summary>
+/// One linked account. <c>Mask</c> is the last 4 digits for display; <c>Type</c> is Plaid's
+/// (depository, credit, loan, investment, other), which the dashboard uses to pick out cards.
+/// </summary>
+public sealed record LinkedAccountResponse(Guid Id, string Name, string? Mask, string? Type);
+
+/// <summary>
+/// One linked bank. <c>Id</c> is our own id, used to ask for a sync; Plaid's item id is never
+/// returned. <c>LastSyncedAt</c> is null until the first sync commits.
+/// </summary>
+public sealed record PlaidItemResponse(
+    Guid Id,
+    string? Institution,
+    DateTime? LastSyncedAt,
+    IReadOnlyList<LinkedAccountResponse> Accounts);
+
+/// <summary>Ledger rows inserted, updated and deleted by one sync.</summary>
+public sealed record PlaidSyncResponse(int Added, int Modified, int Removed, DateTime LastSyncedAt);

@@ -13,6 +13,7 @@ import {
 } from "../api/transactions";
 import BrandName, { BRAND_NAME, clearAuthSession } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
+import AccountsSection from "../components/AccountsSection";
 import ConnectBankButton from "../components/ConnectBankButton";
 import "./Home.css";
 
@@ -27,6 +28,13 @@ const Home = () => {
     | { status: "ready"; recent: Transaction[]; summary: LedgerSummary; hasRows: boolean }
   >({ status: "loading" });
   const [ledgerAttempt, setLedgerAttempt] = useState(0);
+  const [accountsVersion, setAccountsVersion] = useState(0);
+
+  // A new link or a sync changes both the account list and the ledger, so reload both.
+  const handleAccountsChanged = () => {
+    setAccountsVersion((version) => version + 1);
+    setLedgerAttempt((attempt) => attempt + 1);
+  };
 
   useEffect(() => {
     // The Google stub session has no API user; nothing to prompt for then.
@@ -171,7 +179,7 @@ const Home = () => {
           </p>
 
           <div className="d-flex flex-wrap justify-content-center align-items-center gap-3 mt-4">
-            <ConnectBankButton />
+            <ConnectBankButton onLinked={handleAccountsChanged} />
             <button type="button" className="btn btn-primary text-nav">
               Upload Statement
             </button>
@@ -191,6 +199,8 @@ const Home = () => {
             {resendStatus && <span className="w-100 small">{resendStatus}</span>}
           </div>
         )}
+
+        <AccountsSection reloadKey={accountsVersion} onChanged={handleAccountsChanged} />
 
         {/* Privacy Banner */}
         <div className="privacy-banner mb-4">
@@ -310,74 +320,10 @@ const Home = () => {
         </div>
         </div>
 
-        {/* Card Wallet & Upcoming Bills Row */}
+        {/* Upcoming Bills Row */}
         <div className="row g-4 mt-2">
-          {/* Your Card */}
-          <div className="col-lg-6">
-            <div className="card glass-card dashboard-card">
-              <div className="card-body">
-                <h4 className="mb-1">Your Card</h4>
-                <p className="card-section-sub mb-3">Stay ahead of your payments</p>
-
-                {/* Payment Cards Stack */}
-                <div className="payment-cards-stack mb-3">
-                  <div className="payment-card payment-card--navy">
-                    <div className="payment-card__left">
-                      <div className="mastercard-logo">
-                        <span className="mc-dot mc-dot--red"></span>
-                        <span className="mc-dot mc-dot--yellow"></span>
-                      </div>
-                      <div className="payment-card__name">Franklin Mgmt Inc</div>
-                      <div className="payment-card__num">**** **** **** 207</div>
-                    </div>
-                    <div className="payment-card__right">
-                      <div className="card-chip"></div>
-                      <div className="card-contactless">&#x1F6DC;</div>
-                    </div>
-                  </div>
-
-                  <div className="payment-card payment-card--orange">
-                    <div className="payment-card__left">
-                      <div className="mastercard-logo">
-                        <span className="mc-dot mc-dot--red"></span>
-                        <span className="mc-dot mc-dot--yellow"></span>
-                      </div>
-                      <div className="payment-card__name">Valiant Capital Mgmt LP</div>
-                      <div className="payment-card__num">**** **** **** 202</div>
-                    </div>
-                    <div className="payment-card__right">
-                      <div className="card-chip"></div>
-                      <div className="card-contactless">&#x1F6DC;</div>
-                    </div>
-                  </div>
-
-                  <div className="payment-card payment-card--green">
-                    <div className="payment-card__left">
-                      <div className="mastercard-logo">
-                        <span className="mc-dot mc-dot--red"></span>
-                        <span className="mc-dot mc-dot--yellow"></span>
-                      </div>
-                      <div className="payment-card__name">Valiant Capital Mgmt LP</div>
-                      <div className="payment-card__num">**** **** **** 207</div>
-                    </div>
-                    <div className="payment-card__right">
-                      <div className="card-chip"></div>
-                      <div className="card-contactless">&#x1F6DC;</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Add Card Button */}
-                <button type="button" className="btn btn-secondary w-100 text-nav border-dashed">
-                  <span className="add-card-btn__icon">+</span>
-                  Add Card
-                </button>
-              </div>
-            </div>
-          </div>
-
           {/* Upcoming Bills */}
-          <div className="col-lg-6">
+          <div className="col-12">
             <div className="card glass-card dashboard-card h-100">
               <div className="card-body">
                 <div className="bills-header mb-1">

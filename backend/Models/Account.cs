@@ -18,5 +18,14 @@ public class Account
     /// <summary>Plaid's account id, used to match the account again on a later exchange or sync.</summary>
     public string? PlaidAccountId { get; set; }
 
+    /// <summary>
+    /// Last 4 digits as Plaid reports them, for telling cards apart on screen. Never the full number.
+    /// Identifying data: #34 must strip it before any AI call.
+    /// </summary>
+    public string? Mask { get; set; }
+
+    /// <summary>Plaid account type: depository, credit, loan, investment or other. Null for non-Plaid accounts.</summary>
+    public string? Type { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

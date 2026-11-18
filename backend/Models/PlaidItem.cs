@@ -21,5 +21,14 @@ public class PlaidItem
 
     public string? InstitutionName { get; set; }
 
+    /// <summary>
+    /// Plaid's <c>/transactions/sync</c> position. Null until the first successful sync. Only ever
+    /// saved together with the rows it covers, so a failed sync never skips transactions.
+    /// </summary>
+    public string? SyncCursor { get; set; }
+
+    /// <summary>When the last sync committed. Also the concurrency token: two syncs cannot both advance the cursor.</summary>
+    public DateTime? LastSyncedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
