@@ -301,11 +301,15 @@ const Landing = () => {
             ...prev,
             ...err.fieldErrors,
           }));
+        } else if (err.status === 429 && !isLogin) {
+          // The server's 429 body says "login attempts" for every policy; register needs its own wording.
+          setError("Too many sign-up attempts. Please wait a few minutes and try again.");
         } else {
           setError(err.message);
         }
 
-        if (err.status === 429) {
+        // Only a /login 429 pauses the Login button; register has its own limiter.
+        if (err.status === 429 && isLogin) {
           setLoginCooldownUntil(Date.now() + LOGIN_RATE_LIMIT_COOLDOWN_MS);
         }
       } else {
