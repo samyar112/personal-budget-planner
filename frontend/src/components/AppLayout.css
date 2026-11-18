@@ -1,0 +1,236 @@
+/* =========================
+   APP SHELL: sidebar + main
+========================= */
+
+.app-shell {
+  --sidebar-width: 248px;
+  --sidebar-rail: 76px;
+
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  /* clip, not hidden: hidden would make this a scroll container and break the sticky sidebar. */
+  overflow: clip;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.app-main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-content {
+  padding: 8px 32px 48px;
+}
+
+/* =========================
+   SIDEBAR
+========================= */
+
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  padding: 20px 14px;
+  border-radius: 0;
+  border-top: 0;
+  border-bottom: 0;
+  border-left: 0;
+  transition: width 0.2s ease;
+}
+
+.app-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 6px 20px;
+}
+
+.app-sidebar__brand {
+  color: var(--foreground);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.app-sidebar__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-strong);
+  color: var(--muted-foreground);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.app-sidebar__icon-btn:hover {
+  color: var(--foreground);
+}
+
+.app-sidebar__nav {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.app-sidebar__group + .app-sidebar__group {
+  margin-top: 18px;
+}
+
+.app-sidebar__group-title {
+  padding: 0 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.app-sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 2px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.app-sidebar__link:hover {
+  background: var(--foreground-subtle);
+  color: var(--foreground);
+}
+
+.app-sidebar__link.active {
+  background: var(--primary-muted);
+  color: var(--primary);
+}
+
+.app-sidebar__link:focus-visible,
+.app-sidebar__icon-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.app-sidebar__link svg {
+  flex-shrink: 0;
+}
+
+.app-sidebar__footer {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* =========================
+   TOP BAR
+========================= */
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 32px 16px;
+}
+
+.app-topbar__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* =========================
+   DESKTOP: collapsed icon rail
+========================= */
+
+@media (min-width: 992px) {
+  .app-shell--collapsed .app-sidebar {
+    width: var(--sidebar-rail);
+  }
+
+  .app-shell--collapsed .app-sidebar__header {
+    flex-direction: column;
+    gap: 14px;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .app-shell--collapsed .app-sidebar__label {
+    display: none;
+  }
+
+  .app-shell--collapsed .app-sidebar__link {
+    justify-content: center;
+    padding: 10px 0;
+  }
+
+  /* Group labels would be clipped in the rail; a thin rule keeps the grouping visible. */
+  .app-shell--collapsed .app-sidebar__group-title {
+    height: 1px;
+    margin: 0 12px 10px;
+    padding: 0;
+    overflow: hidden;
+    background: var(--border);
+    color: transparent;
+  }
+}
+
+/* =========================
+   PHONES / TABLETS: drawer
+========================= */
+
+@media (max-width: 991.98px) {
+  .app-sidebar {
+    position: fixed;
+    left: 0;
+    z-index: 1045;
+    background: var(--card-strong);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+  }
+
+  .app-sidebar--open {
+    transform: translateX(0);
+  }
+
+  .app-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background: var(--foreground-overlay);
+    opacity: 0.4;
+  }
+
+  .app-topbar {
+    padding: 16px;
+  }
+
+  .app-content {
+    padding: 8px 16px 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar {
+    transition: none;
+  }
+}

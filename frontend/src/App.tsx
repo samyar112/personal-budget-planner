@@ -8,6 +8,12 @@ import VerifyEmail from "./pages/VerifyEmail";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import AdminUsers from "./pages/AdminUsers";
+import Accounts from "./pages/Accounts";
+import Transactions from "./pages/Transactions";
+import Bills from "./pages/Bills";
+import Spending from "./pages/Spending";
+import Insights from "./pages/Insights";
+import AppLayout from "./components/AppLayout";
 
 /**
  * Allows /home only when /api/auth/me succeeds (HttpOnly cookie),
@@ -67,22 +73,29 @@ const App = () => {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Landing />} />
+        {/* Every signed-in page shares the sidebar layout; RequireAuth runs once for all of them. */}
         <Route
-          path="/home"
           element={
             <RequireAuth>
-              <Home />
+              <AppLayout />
             </RequireAuth>
           }
-        />
-        <Route
-          path="/admin/users"
-          element={
-            <RequireAuth adminOnly>
-              <AdminUsers />
-            </RequireAuth>
-          }
-        />
+        >
+          <Route path="/home" element={<Home />} />
+          <Route path="/accounts" element={<Accounts />} />
+          <Route path="/transactions" element={<Transactions />} />
+          <Route path="/bills" element={<Bills />} />
+          <Route path="/spending" element={<Spending />} />
+          <Route path="/insights" element={<Insights />} />
+          <Route
+            path="/admin/users"
+            element={
+              <RequireAuth adminOnly>
+                <AdminUsers />
+              </RequireAuth>
+            }
+          />
+        </Route>
         <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
