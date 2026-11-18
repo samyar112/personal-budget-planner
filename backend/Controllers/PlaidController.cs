@@ -22,6 +22,7 @@ public sealed class PlaidController(
     AppDbContext db,
     IPlaidClient plaid,
     AccessTokenProtector protector,
+    PlaidSyncService syncService,
     ILogger<PlaidController> logger) : ControllerBase
 {
     private const int MaxPublicTokenLength = 200;
@@ -123,16 +124,94 @@ public sealed class PlaidController(
             account.Name = plaidAccount.Name;
             account.Institution = details.InstitutionName;
             account.PlaidItemId = item.Id;
+            account.Mask = plaidAccount.Mask;
+            account.Type = plaidAccount.Type;
             linked.Add(account);
         }
 
         // One SaveChanges is one database transaction: the item and its accounts land together or not at all.
         await db.SaveChangesAsync(cancellationToken);
 
-        return Ok(new PlaidExchangeResponse(
-            details.InstitutionName,
-            linked.Select(account => new LinkedAccountResponse(account.Id, account.Name)).ToList()));
+        // First sync straight away so the dashboard fills in. Best effort: the link is already saved,
+        // and a failure here leaves the cursor null, so Sync now picks up from the beginning.
+        var firstSync = await syncService.SyncAsync(userId, item.Id, cancellationToken);
+        if (firstSync.Status != PlaidSyncStatus.Synced)
+        {
+            logger.LogWarning("First sync after exchange did not complete: {Status}", firstSync.Status);
+        }
+
+        return Ok(new PlaidExchangeResponse(details.InstitutionName, linked.Select(ToResponse).ToList()));
     }
+
+    /// <summary>The caller's linked banks and their accounts, oldest link first.</summary>
+    [HttpGet("items")]
+    [ProducesResponseType<IReadOnlyList<PlaidItemResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyList<PlaidItemResponse>>> ListItems(CancellationToken cancellationToken)
+    {
+        if (CallerId() is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        var items = await db.PlaidItems
+            .AsNoTracking()
+            .Where(item => item.UserId == userId)
+            .OrderBy(item => item.CreatedAt)
+            .Select(item => new { item.Id, item.InstitutionName, item.LastSyncedAt })
+            .ToListAsync(cancellationToken);
+
+        var itemIds = items.Select(item => item.Id).ToList();
+        var accounts = await db.Accounts
+            .AsNoTracking()
+            .Where(account => account.UserId == userId
+                && account.PlaidItemId != null
+                && itemIds.Contains(account.PlaidItemId.Value))
+            .OrderBy(account => account.Name)
+            .ToListAsync(cancellationToken);
+        var byItem = accounts.ToLookup(account => account.PlaidItemId!.Value);
+
+        return Ok(items
+            .Select(item => new PlaidItemResponse(
+                item.Id,
+                item.InstitutionName,
+                item.LastSyncedAt,
+                byItem[item.Id].Select(ToResponse).ToList()))
+            .ToList());
+    }
+
+    /// <summary>
+    /// Pulls the item's new, changed and removed transactions into the ledger. 409 when another sync
+    /// of the same item committed first; nothing from this attempt is saved.
+    /// </summary>
+    [HttpPost("items/{id:guid}/sync")]
+    [ProducesResponseType<PlaidSyncResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<ActionResult<PlaidSyncResponse>> Sync(Guid id, CancellationToken cancellationToken)
+    {
+        if (CallerId() is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        var outcome = await syncService.SyncAsync(userId, id, cancellationToken);
+        return outcome.Status switch
+        {
+            PlaidSyncStatus.Synced => Ok(new PlaidSyncResponse(
+                outcome.Added, outcome.Modified, outcome.Removed, outcome.LastSyncedAt!.Value)),
+            PlaidSyncStatus.NotFound => NotFound(),
+            PlaidSyncStatus.Conflict => Conflict(new { message = "A sync for this bank is already running." }),
+            _ => StatusCode(StatusCodes.Status502BadGateway),
+        };
+    }
+
+    private static LinkedAccountResponse ToResponse(Account account) =>
+        new(account.Id, account.Name, account.Mask, account.Type);
 
     private Guid? CallerId()
     {

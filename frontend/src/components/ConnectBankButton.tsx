@@ -47,8 +47,20 @@ type Status =
   | { kind: "linked"; result: PlaidExchangeResult }
   | { kind: "error"; message: string };
 
+type ConnectBankButtonProps = {
+  onLinked?: (result: PlaidExchangeResult) => void;
+  /** Button text. Defaults to "Connect a Bank". */
+  label?: string;
+  /** Bootstrap button classes. Defaults to the green primary action. */
+  className?: string;
+};
+
 /** Opens Plaid Link, then stores the linked bank through the API. */
-const ConnectBankButton = ({ onLinked }: { onLinked?: (result: PlaidExchangeResult) => void }) => {
+const ConnectBankButton = ({
+  onLinked,
+  label = "Connect a Bank",
+  className = "btn btn-success text-nav",
+}: ConnectBankButtonProps) => {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const handleClick = async () => {
@@ -95,17 +107,17 @@ const ConnectBankButton = ({ onLinked }: { onLinked?: (result: PlaidExchangeResu
     <>
       <button
         type="button"
-        className="btn btn-success text-nav"
+        className={className}
         onClick={handleClick}
         disabled={status.kind === "busy"}
       >
-        {status.kind === "busy" ? "Connecting…" : "Connect a Bank"}
+        {status.kind === "busy" ? "Connecting…" : label}
       </button>
 
       {status.kind === "linked" && (
         <div className="small w-100 order-last text-center" role="status">
-          Linked {status.result.institution ?? "your bank"}:{" "}
-          {status.result.accounts.map((account) => account.name).join(", ")}
+          Linked {status.result.institution ?? "your bank"} ({status.result.accounts.length}{" "}
+          {status.result.accounts.length === 1 ? "account" : "accounts"}).
         </div>
       )}
 

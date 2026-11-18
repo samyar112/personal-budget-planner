@@ -16,13 +16,35 @@ public interface IPlaidClient
 
     /// <summary>The item's accounts and institution.</summary>
     Task<PlaidItemDetails> GetItemDetailsAsync(string accessToken, CancellationToken cancellationToken);
+
+    /// <summary>One page of changes since <paramref name="cursor"/>; null means from the beginning.</summary>
+    Task<PlaidSyncPage> SyncTransactionsAsync(string accessToken, string? cursor, CancellationToken cancellationToken);
 }
 
 public sealed record PlaidExchangeResult(string AccessToken, string ItemId);
 
 public sealed record PlaidItemDetails(string? InstitutionId, string? InstitutionName, IReadOnlyList<PlaidAccount> Accounts);
 
-public sealed record PlaidAccount(string AccountId, string Name);
+public sealed record PlaidAccount(string AccountId, string Name, string? Mask = null, string? Type = null);
+
+/// <summary>
+/// A Plaid transaction as Plaid reports it. <see cref="Amount"/> is Plaid's sign: positive is money out.
+/// </summary>
+public sealed record PlaidTransaction(
+    string TransactionId,
+    string AccountId,
+    decimal Amount,
+    DateOnly Date,
+    string Name,
+    string? MerchantName,
+    bool Pending);
+
+public sealed record PlaidSyncPage(
+    IReadOnlyList<PlaidTransaction> Added,
+    IReadOnlyList<PlaidTransaction> Modified,
+    IReadOnlyList<string> Removed,
+    string NextCursor,
+    bool HasMore);
 
 /// <summary>
 /// Plaid refused a request. Carries Plaid's error code and request id for the log, never a
@@ -98,8 +120,45 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
         return new PlaidItemDetails(
             institutionId,
             institutionName,
-            accounts.Accounts.Select(account => new PlaidAccount(account.AccountId, account.Name)).ToList());
+            accounts.Accounts
+                .Select(account => new PlaidAccount(account.AccountId, account.Name, account.Mask, account.Type))
+                .ToList());
     }
+
+    public async Task<PlaidSyncPage> SyncTransactionsAsync(
+        string accessToken,
+        string? cursor,
+        CancellationToken cancellationToken)
+    {
+        // Plaid treats an empty cursor as "from the beginning"; an omitted one works too, but be explicit.
+        var response = await PostAsync<TransactionsSyncResponse>(
+            "transactions/sync",
+            new
+            {
+                client_id = _options.ClientId,
+                secret = _options.Secret,
+                access_token = accessToken,
+                cursor = cursor ?? "",
+                count = 500,
+            },
+            cancellationToken);
+
+        return new PlaidSyncPage(
+            response.Added.Select(ToTransaction).ToList(),
+            response.Modified.Select(ToTransaction).ToList(),
+            response.Removed.Select(removed => removed.TransactionId).ToList(),
+            response.NextCursor,
+            response.HasMore);
+    }
+
+    private static PlaidTransaction ToTransaction(TransactionEntry entry) => new(
+        entry.TransactionId,
+        entry.AccountId,
+        entry.Amount,
+        DateOnly.ParseExact(entry.Date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+        entry.Name,
+        entry.MerchantName,
+        entry.Pending);
 
     private async Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken)
     {
@@ -140,7 +199,28 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
 
     private sealed record AccountEntry(
         [property: JsonPropertyName("account_id")] string AccountId,
-        [property: JsonPropertyName("name")] string Name);
+        [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("mask")] string? Mask,
+        [property: JsonPropertyName("type")] string? Type);
+
+    private sealed record TransactionsSyncResponse(
+        [property: JsonPropertyName("added")] IReadOnlyList<TransactionEntry> Added,
+        [property: JsonPropertyName("modified")] IReadOnlyList<TransactionEntry> Modified,
+        [property: JsonPropertyName("removed")] IReadOnlyList<RemovedEntry> Removed,
+        [property: JsonPropertyName("next_cursor")] string NextCursor,
+        [property: JsonPropertyName("has_more")] bool HasMore);
+
+    private sealed record TransactionEntry(
+        [property: JsonPropertyName("transaction_id")] string TransactionId,
+        [property: JsonPropertyName("account_id")] string AccountId,
+        [property: JsonPropertyName("amount")] decimal Amount,
+        [property: JsonPropertyName("date")] string Date,
+        [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("merchant_name")] string? MerchantName,
+        [property: JsonPropertyName("pending")] bool Pending);
+
+    private sealed record RemovedEntry(
+        [property: JsonPropertyName("transaction_id")] string TransactionId);
 
     private sealed record ItemEntry(
         [property: JsonPropertyName("institution_id")] string? InstitutionId);

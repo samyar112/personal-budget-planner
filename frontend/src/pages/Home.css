@@ -375,6 +375,75 @@
 }
 
 /* =========================
+   CONNECTED BANKS
+========================= */
+
+/* One bordered panel per bank; its cards sit inside, under the header. */
+.bank-panel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--card);
+}
+
+.bank-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The whole left side of the row expands the bank; it reads as text, not a button. */
+.bank-panel__toggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.bank-panel__toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.bank-panel__chevron {
+  width: 12px;
+  color: var(--muted-foreground);
+}
+
+/* Smaller cards inside a bank row, so expanding one bank does not take over the page. */
+.payment-card--compact {
+  min-height: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+
+
+.bank-row__name {
+  font-weight: 600;
+}
+
+.bank-row__accounts {
+  font-size: 0.85rem;
+  color: var(--muted-foreground);
+}
+
+
+.bank-row__synced {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+/* =========================
    ADD CARD BUTTON ICON
 ========================= */
 
