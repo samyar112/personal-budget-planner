@@ -103,16 +103,16 @@ const ConnectBankButton = ({ onLinked }: { onLinked?: (result: PlaidExchangeResu
       </button>
 
       {status.kind === "linked" && (
-        <p className="small w-100 order-last text-center mx-auto my-0" role="status">
+        <div className="small w-100 order-last text-center" role="status">
           Linked {status.result.institution ?? "your bank"}:{" "}
           {status.result.accounts.map((account) => account.name).join(", ")}
-        </p>
+        </div>
       )}
 
       {status.kind === "error" && (
-        <p className="small text-danger w-100 order-last text-center mx-auto my-0" role="alert">
+        <div className="small text-danger w-100 order-last text-center" role="alert">
           {status.message}
-        </p>
+        </div>
       )}
     </>
   );
