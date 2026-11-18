@@ -36,6 +36,12 @@
       "CheckCertificateRevocation": true
     }
   },
+  "Plaid": {
+    "ClientId": "PLAID_CLIENT_ID_FROM_DASHBOARD",
+    "Secret": "PLAID_SANDBOX_SECRET_FROM_DASHBOARD",
+    "Environment": "sandbox",
+    "TokenEncryptionKey": "REPLACE_WITH_openssl_rand_-base64_32_OUTPUT"
+  },
   "Cors": {
     "AllowedOrigins": [
       "http://localhost:5173",

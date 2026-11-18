@@ -11,5 +11,12 @@ public class Account
     /// <summary>Institution name for display, for example "Sandbox Bank". Never an account number.</summary>
     public string? Institution { get; set; }
 
+    /// <summary>Set when Plaid produced this account; null for seed or PDF accounts.</summary>
+    public Guid? PlaidItemId { get; set; }
+    public PlaidItem? PlaidItem { get; set; }
+
+    /// <summary>Plaid's account id, used to match the account again on a later exchange or sync.</summary>
+    public string? PlaidAccountId { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -13,6 +13,7 @@ import {
 } from "../api/transactions";
 import BrandName, { BRAND_NAME, clearAuthSession } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
+import ConnectBankButton from "../components/ConnectBankButton";
 import "./Home.css";
 
 const Home = () => {
@@ -168,9 +169,12 @@ const Home = () => {
             recommendations while keeping your sensitive information protected.
           </p>
 
-          <button type="button" className="btn btn-primary text-nav mt-3 d-block mx-auto">
-            Upload Statement
-          </button>
+          <div className="d-flex flex-wrap justify-content-center align-items-center gap-3 mt-4">
+            <ConnectBankButton />
+            <button type="button" className="btn btn-primary text-nav">
+              Upload Statement
+            </button>
+          </div>
         </div>
       </section>
 

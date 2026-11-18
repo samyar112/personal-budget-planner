@@ -47,6 +47,7 @@ builder.Services.AddAuthSecurity(builder.Configuration);
 builder.Services.AddEmail(builder.Configuration);
 builder.Services.AddHostValidation();
 builder.Services.AddAdminAccess(builder.Configuration);
+builder.Services.AddPlaid(builder.Configuration);
 
 builder.Services
     .AddOptions<JwtOptions>()

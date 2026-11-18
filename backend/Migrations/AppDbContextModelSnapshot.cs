@@ -40,12 +40,24 @@ namespace backend.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("PlaidAccountId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid?>("PlaidItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PlaidItemId");
+
                     b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "PlaidAccountId")
+                        .IsUnique();
 
                     b.ToTable("Accounts");
                 });
@@ -178,6 +190,46 @@ namespace backend.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("PasswordResetTokens");
+                });
+
+            modelBuilder.Entity("backend.Models.PlaidItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EncryptedAccessToken")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("InstitutionId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("InstitutionName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ItemId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PlaidItems");
                 });
 
             modelBuilder.Entity("backend.Models.RefreshToken", b =>
@@ -323,11 +375,18 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.Account", b =>
                 {
+                    b.HasOne("backend.Models.PlaidItem", "PlaidItem")
+                        .WithMany()
+                        .HasForeignKey("PlaidItemId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("backend.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("PlaidItem");
 
                     b.Navigation("User");
                 });
@@ -370,6 +429,17 @@ namespace backend.Migrations
                 });
 
             modelBuilder.Entity("backend.Models.PasswordResetToken", b =>
+                {
+                    b.HasOne("backend.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.PlaidItem", b =>
                 {
                     b.HasOne("backend.Models.User", "User")
                         .WithMany()
