@@ -9,7 +9,6 @@
 
 # Agent skills (keep local-only; do not push)
 .agents/
-.cursor/skills/
 .claude/skills/
 .claude/handoff.md
 .codex/skills/
@@ -51,3 +50,6 @@ backend/email-outbox/
 # Local-only assistant notes (personal data, never committed)
 CLAUDE.local.md
 .claude/launch.json
+
+# Visual Studio per-user cache
+.vs/
