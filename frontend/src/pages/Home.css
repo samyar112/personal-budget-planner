@@ -47,16 +47,17 @@
 ========================= */
 
 .hero-section {
-  padding: 48px 20px 64px;
+  padding: 48px 0 16px;
   position: relative;
 }
 
+/* A full-bleed band across the viewport: square corners and no side borders, since its edges are the screen's. */
 .hero-section__inner {
-  max-width: 760px;
-  margin: 0 auto;
   text-align: center;
-  border-radius: 28px;
-  padding: 40px 44px;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  padding: 56px 24px;
 }
 
 .hero-section h1 {
@@ -72,10 +73,14 @@
    FOOTER
 ========================= */
 
+/* Full-bleed like the hero: edge to edge, flush with the bottom of the page. */
 .finance-footer {
   color: var(--primary-foreground);
-  margin: 60px 24px 32px;
-  border-radius: 20px;
+  margin: 60px 0 0;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
   padding: 0;
 }
 

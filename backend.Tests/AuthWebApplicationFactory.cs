@@ -59,6 +59,11 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
                 ["AuthSecurity:ResendWindowSeconds"] = "60",
                 // No cooldown by default so resend tests need not wait; cooldown tests override it.
                 ["AuthSecurity:LoginCodeResendCooldownSeconds"] = "0",
+                // Plaid itself is faked below; these only satisfy startup validation.
+                ["Plaid:ClientId"] = "test-client-id",
+                ["Plaid:Secret"] = "test-secret",
+                ["Plaid:Environment"] = "sandbox",
+                ["Plaid:TokenEncryptionKey"] = Convert.ToBase64String(new byte[32]),
             };
 
             foreach (var (key, value) in ExtraConfig)
@@ -90,12 +95,65 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
                 services.AddSingleton<IAccountEmailQueue, InlineAccountEmailQueue>();
             }
 
+            // No test may reach the real Plaid API.
+            services.RemoveAll<IPlaidClient>();
+            services.AddSingleton<FakePlaidClient>();
+            services.AddSingleton<IPlaidClient>(provider => provider.GetRequiredService<FakePlaidClient>());
+
             // Stand-in for a ledger endpoint, which does not exist yet.
             services.AddControllers().AddApplicationPart(typeof(VerifiedOnlyProbeController).Assembly);
         });
     }
 
     public CapturingEmailSender Emails => Services.GetRequiredService<CapturingEmailSender>();
+
+    public FakePlaidClient Plaid => Services.GetRequiredService<FakePlaidClient>();
+}
+
+/// <summary>
+/// Stands in for Plaid. Each public token maps to an item a test registers up front; an unknown
+/// public token is refused the way Plaid refuses one (400 INVALID_PUBLIC_TOKEN).
+/// </summary>
+public sealed class FakePlaidClient : IPlaidClient
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (PlaidExchangeResult Exchange, PlaidItemDetails Details)> _items = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, PlaidItemDetails> _byAccessToken = new();
+
+    public System.Collections.Concurrent.ConcurrentBag<Guid> LinkTokenUsers { get; } = [];
+
+    /// <summary>Registers what Plaid will return for <paramref name="publicToken"/>.</summary>
+    public PlaidExchangeResult AddItem(string publicToken, string institution, params (string Id, string Name)[] accounts)
+    {
+        var exchange = new PlaidExchangeResult($"access-sandbox-{Guid.NewGuid():N}", $"item-{Guid.NewGuid():N}");
+        var details = new PlaidItemDetails(
+            "ins_test",
+            institution,
+            accounts.Select(account => new PlaidAccount(account.Id, account.Name)).ToList());
+        _items[publicToken] = (exchange, details);
+        _byAccessToken[exchange.AccessToken] = details;
+        return exchange;
+    }
+
+    public Task<string> CreateLinkTokenAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        LinkTokenUsers.Add(userId);
+        return Task.FromResult($"link-sandbox-{userId:N}");
+    }
+
+    public Task<PlaidExchangeResult> ExchangePublicTokenAsync(string publicToken, CancellationToken cancellationToken) =>
+        _items.TryGetValue(publicToken, out var item)
+            ? Task.FromResult(item.Exchange)
+            : throw new PlaidException(System.Net.HttpStatusCode.BadRequest, "INVALID_PUBLIC_TOKEN", "req-test");
+
+    public Task<PlaidItemDetails> GetItemDetailsAsync(string accessToken, CancellationToken cancellationToken) =>
+        Task.FromResult(_byAccessToken[accessToken]);
+}
+
+/// <summary>Factory with a Plaid encryption key that is not 32 bytes, which must stop the app at startup.</summary>
+public sealed class BadPlaidKeyWebApplicationFactory : AuthWebApplicationFactory
+{
+    protected override IReadOnlyDictionary<string, string?> ExtraConfig { get; } =
+        new Dictionary<string, string?> { ["Plaid:TokenEncryptionKey"] = Convert.ToBase64String(new byte[16]) };
 }
 
 /// <summary>Records messages instead of sending them.</summary>

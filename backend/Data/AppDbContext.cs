@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<LoginChallenge> LoginChallenges => Set<LoginChallenge>();
     public DbSet<AdminAuditEntry> AdminAuditEntries => Set<AdminAuditEntry>();
     public DbSet<Account> Accounts => Set<Account>();
+    public DbSet<PlaidItem> PlaidItems => Set<PlaidItem>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -92,10 +93,34 @@ public class AppDbContext : DbContext
         {
             entity.Property(account => account.Name).HasMaxLength(200);
             entity.Property(account => account.Institution).HasMaxLength(200);
+            entity.Property(account => account.PlaidAccountId).HasMaxLength(200);
             entity.HasIndex(account => account.UserId);
+            // An exchange matches existing rows on (user, Plaid account id); null ids never collide.
+            entity.HasIndex(account => new { account.UserId, account.PlaidAccountId }).IsUnique();
+            entity.HasIndex(account => account.PlaidItemId);
             entity.HasOne(account => account.User)
                 .WithMany()
                 .HasForeignKey(account => account.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            // PlaidItem and Account both cascade from User; NoAction avoids a second cascade path,
+            // as on Transaction.Account.
+            entity.HasOne(account => account.PlaidItem)
+                .WithMany()
+                .HasForeignKey(account => account.PlaidItemId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<PlaidItem>(entity =>
+        {
+            entity.Property(item => item.ItemId).HasMaxLength(200);
+            entity.Property(item => item.EncryptedAccessToken).HasMaxLength(1000);
+            entity.Property(item => item.InstitutionId).HasMaxLength(100);
+            entity.Property(item => item.InstitutionName).HasMaxLength(200);
+            entity.HasIndex(item => item.ItemId).IsUnique();
+            entity.HasIndex(item => item.UserId);
+            entity.HasOne(item => item.User)
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

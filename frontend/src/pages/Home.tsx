@@ -13,6 +13,7 @@ import {
 } from "../api/transactions";
 import BrandName, { BRAND_NAME, clearAuthSession } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
+import ConnectBankButton from "../components/ConnectBankButton";
 import "./Home.css";
 
 const Home = () => {
@@ -157,24 +158,28 @@ const Home = () => {
 
       {/* Hero */}
       <section className="hero-section">
-        <div className="container hero-section__inner glass-panel">
+        <div className="hero-section__inner glass-panel">
           <h1 className="text-headline text-center">
             Smart Budgeting.{" "}
             <span className="text-primary">Private by Design.</span>
           </h1>
 
           <p className="text-body-brand mt-3 text-center">
-            Upload your financial statements and receive personalized budget
-            recommendations while keeping your sensitive information protected.
+            Connect your bank or upload a statement, and get budget
+            recommendations built from your own spending. Identifying details
+            are stripped out before any AI sees your data.
           </p>
 
-          <button type="button" className="btn btn-primary text-nav mt-3 d-block mx-auto">
-            Upload Statement
-          </button>
+          <div className="d-flex flex-wrap justify-content-center align-items-center gap-3 mt-4">
+            <ConnectBankButton />
+            <button type="button" className="btn btn-primary text-nav">
+              Upload Statement
+            </button>
+          </div>
         </div>
       </section>
 
-      <div className="container py-5">
+      <div className="container-fluid px-4 px-lg-5 pt-4 pb-5">
         {unverifiedEmail && (
           <div className="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="status">
             <span>
@@ -420,47 +425,47 @@ const Home = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        <footer className="finance-footer glass-panel glass-panel--footer mt-5">
-          <div className="container py-4">
-            <div className="row">
-              <div className="col-md-4">
-                <h5 className="fw-bold">
-                  <BrandName logoSize="md" />
-                </h5>
-                <p className="text-body-secondary">
-                  Private, AI-powered budgeting that keeps your financial data
-                  secure.
-                </p>
-              </div>
-
-              <div className="col-md-4">
-                <h6>Product</h6>
-                <ul className="footer-links">
-                  <li>Dashboard</li>
-                  <li>Upload Statements</li>
-                  <li>Insights</li>
-                </ul>
-              </div>
-
-              <div className="col-md-4">
-                <h6>Company</h6>
-                <ul className="footer-links">
-                  <li>About</li>
-                  <li>Privacy</li>
-                  <li>Security</li>
-                </ul>
-              </div>
+      <footer className="finance-footer glass-panel glass-panel--footer">
+        <div className="container-fluid px-4 px-lg-5 py-4">
+          <div className="row">
+            <div className="col-md-4">
+              <h5 className="fw-bold">
+                <BrandName logoSize="md" />
+              </h5>
+              <p className="text-body-secondary">
+                Private, AI-powered budgeting that keeps your financial data
+                secure.
+              </p>
             </div>
 
-            <hr />
+            <div className="col-md-4">
+              <h6>Product</h6>
+              <ul className="footer-links">
+                <li>Dashboard</li>
+                <li>Upload Statements</li>
+                <li>Insights</li>
+              </ul>
+            </div>
 
-            <p className="text-center text-body-secondary mb-0">
-              © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
-            </p>
+            <div className="col-md-4">
+              <h6>Company</h6>
+              <ul className="footer-links">
+                <li>About</li>
+                <li>Privacy</li>
+                <li>Security</li>
+              </ul>
+            </div>
           </div>
-        </footer>
-      </div>
+
+          <hr />
+
+          <p className="text-center text-body-secondary mb-0">
+            © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };
