@@ -212,6 +212,11 @@ public sealed class PlaidSyncService(
             row.Description = Truncate(transaction.MerchantName ?? transaction.Name);
             // Plaid: positive is money out. Ledger: negative is money out.
             row.Amount = -transaction.Amount;
+
+            var category = TransactionCategorizer.Categorize(
+                transaction.CategoryPrimary, transaction.CategoryDetailed, transaction.MerchantName, transaction.Name);
+            row.Category = category.Category;
+            row.Subcategory = category.Subcategory;
         }
 
         return (added, modified, removed);

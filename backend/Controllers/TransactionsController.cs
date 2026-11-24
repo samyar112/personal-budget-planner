@@ -76,7 +76,8 @@ public sealed class TransactionsController(AppDbContext db) : ControllerBase
                 transaction.Date,
                 transaction.Description,
                 transaction.Amount,
-                transaction.Category))
+                transaction.Category,
+                transaction.Subcategory))
             .ToListAsync(cancellationToken);
 
         return Ok(new TransactionListResponse(items, page, pageSize, total));

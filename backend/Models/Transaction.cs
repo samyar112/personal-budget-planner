@@ -20,6 +20,9 @@ public class Transaction
     /// <summary>Signed: negative is money out, positive is money in.</summary>
     public decimal Amount { get; set; }
 
-    /// <summary>Null until categorisation (P4b) assigns one.</summary>
+    /// <summary>Plaid personal_finance_category primary code, or OTHER. Null only for rows written before P4b.</summary>
     public string? Category { get; set; }
+
+    /// <summary>Plaid personal_finance_category detailed code, when known.</summary>
+    public string? Subcategory { get; set; }
 }

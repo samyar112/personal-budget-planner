@@ -37,7 +37,9 @@ public sealed record PlaidTransaction(
     DateOnly Date,
     string Name,
     string? MerchantName,
-    bool Pending);
+    bool Pending,
+    string? CategoryPrimary = null,
+    string? CategoryDetailed = null);
 
 public sealed record PlaidSyncPage(
     IReadOnlyList<PlaidTransaction> Added,
@@ -158,7 +160,9 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
         DateOnly.ParseExact(entry.Date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
         entry.Name,
         entry.MerchantName,
-        entry.Pending);
+        entry.Pending,
+        entry.PersonalFinanceCategory?.Primary,
+        entry.PersonalFinanceCategory?.Detailed);
 
     private async Task<T> PostAsync<T>(string path, object body, CancellationToken cancellationToken)
     {
@@ -217,7 +221,12 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
         [property: JsonPropertyName("date")] string Date,
         [property: JsonPropertyName("name")] string Name,
         [property: JsonPropertyName("merchant_name")] string? MerchantName,
-        [property: JsonPropertyName("pending")] bool Pending);
+        [property: JsonPropertyName("pending")] bool Pending,
+        [property: JsonPropertyName("personal_finance_category")] PersonalFinanceCategoryEntry? PersonalFinanceCategory);
+
+    private sealed record PersonalFinanceCategoryEntry(
+        [property: JsonPropertyName("primary")] string? Primary,
+        [property: JsonPropertyName("detailed")] string? Detailed);
 
     private sealed record RemovedEntry(
         [property: JsonPropertyName("transaction_id")] string TransactionId);
