@@ -19,11 +19,19 @@ public interface IPlaidClient
 
     /// <summary>One page of changes since <paramref name="cursor"/>; null means from the beginning.</summary>
     Task<PlaidSyncPage> SyncTransactionsAsync(string accessToken, string? cursor, CancellationToken cancellationToken);
+
+    /// <summary>Revokes the access token and ends the link at Plaid. After this the token is useless.</summary>
+    Task RemoveItemAsync(string accessToken, CancellationToken cancellationToken);
 }
 
 public sealed record PlaidExchangeResult(string AccessToken, string ItemId);
 
-public sealed record PlaidItemDetails(string? InstitutionId, string? InstitutionName, IReadOnlyList<PlaidAccount> Accounts);
+public sealed record PlaidItemDetails(
+    string? InstitutionId,
+    string? InstitutionName,
+    IReadOnlyList<PlaidAccount> Accounts,
+    string? Logo = null,
+    string? PrimaryColor = null);
 
 public sealed record PlaidAccount(
     string AccountId,
@@ -110,6 +118,8 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
 
         var institutionId = accounts.Item.InstitutionId;
         string? institutionName = null;
+        string? logo = null;
+        string? primaryColor = null;
         if (!string.IsNullOrEmpty(institutionId))
         {
             var institution = await PostAsync<InstitutionGetResponse>(
@@ -120,9 +130,12 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
                     secret = _options.Secret,
                     institution_id = institutionId,
                     country_codes = CountryCodes,
+                    options = new { include_optional_metadata = true },
                 },
                 cancellationToken);
             institutionName = institution.Institution.Name;
+            logo = institution.Institution.Logo;
+            primaryColor = institution.Institution.PrimaryColor;
         }
 
         return new PlaidItemDetails(
@@ -131,8 +144,16 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
             accounts.Accounts
                 .Select(account => new PlaidAccount(
                     account.AccountId, account.Name, account.Mask, account.Type, account.Subtype, account.Balances?.Current))
-                .ToList());
+                .ToList(),
+            logo,
+            primaryColor);
     }
+
+    public async Task RemoveItemAsync(string accessToken, CancellationToken cancellationToken) =>
+        await PostAsync<ItemRemoveResponse>(
+            "item/remove",
+            new { client_id = _options.ClientId, secret = _options.Secret, access_token = accessToken },
+            cancellationToken);
 
     public async Task<PlaidSyncPage> SyncTransactionsAsync(
         string accessToken,
@@ -204,6 +225,9 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
         [property: JsonPropertyName("access_token")] string AccessToken,
         [property: JsonPropertyName("item_id")] string ItemId);
 
+    private sealed record ItemRemoveResponse(
+        [property: JsonPropertyName("request_id")] string? RequestId);
+
     private sealed record AccountsGetResponse(
         [property: JsonPropertyName("accounts")] IReadOnlyList<AccountEntry> Accounts,
         [property: JsonPropertyName("item")] ItemEntry Item);
@@ -250,5 +274,7 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
         [property: JsonPropertyName("institution")] InstitutionEntry Institution);
 
     private sealed record InstitutionEntry(
-        [property: JsonPropertyName("name")] string Name);
+        [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("logo")] string? Logo,
+        [property: JsonPropertyName("primary_color")] string? PrimaryColor);
 }

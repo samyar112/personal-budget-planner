@@ -44,7 +44,6 @@ function loadPlaid(): Promise<PlaidGlobal> {
 type Status =
   | { kind: "idle" }
   | { kind: "busy" }
-  | { kind: "linked"; result: PlaidExchangeResult }
   | { kind: "error"; message: string };
 
 type ConnectBankButtonProps = {
@@ -73,7 +72,7 @@ const ConnectBankButton = ({
           handler.destroy();
           exchangePublicToken(publicToken)
             .then((result) => {
-              setStatus({ kind: "linked", result });
+              setStatus({ kind: "idle" });
               onLinked?.(result);
             })
             .catch((err: unknown) =>
@@ -113,13 +112,6 @@ const ConnectBankButton = ({
       >
         {status.kind === "busy" ? "Connecting…" : label}
       </button>
-
-      {status.kind === "linked" && (
-        <div className="small w-100 order-last text-center" role="status">
-          Linked {status.result.institution ?? "your bank"} ({status.result.accounts.length}{" "}
-          {status.result.accounts.length === 1 ? "account" : "accounts"}).
-        </div>
-      )}
 
       {status.kind === "error" && (
         <div className="small text-danger w-100 order-last text-center" role="alert">

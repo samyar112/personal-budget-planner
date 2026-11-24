@@ -368,14 +368,6 @@
   align-items: center;
 }
 
-.payment-card__kind {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
-}
-
 .payment-card--compact .payment-card__name {
   margin-top: 0;
 }
@@ -444,6 +436,44 @@
 .account-row__meta {
   font-size: 0.75rem;
   color: var(--muted-foreground);
+}
+
+/* The bank's logo, or its initial on the brand colour. Same box either way so rows line up. */
+.bank-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: contain;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.bank-logo--initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bank-panel__heading {
+  font-weight: 600;
+}
+
+/* Bottom right of an expanded bank: the destructive action, away from Sync now. */
+.bank-panel__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.bank-panel__confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 28rem;
+  text-align: right;
 }
 
 .bank-row__name {

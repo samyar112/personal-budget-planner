@@ -71,6 +71,10 @@ public sealed class PlaidSyncService(
                 && account.PlaidAccountId != null)
             .ToDictionaryAsync(account => account.PlaidAccountId!, cancellationToken);
 
+        // The bank's logo and colour can change, and were not stored for banks linked before they existed.
+        item.InstitutionLogo = InstitutionBranding.CleanLogo(details.Logo);
+        item.InstitutionColor = InstitutionBranding.CleanColor(details.PrimaryColor);
+
         // Keeps names, last 4 digits and types current, including for banks linked before they were stored.
         foreach (var plaidAccount in details.Accounts)
         {

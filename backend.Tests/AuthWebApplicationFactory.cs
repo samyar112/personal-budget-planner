@@ -173,6 +173,13 @@ public sealed class FakePlaidClient : IPlaidClient
         return exchange;
     }
 
+    /// <summary>Changes the logo and colour Plaid returns for this access token, as if the bank's branding changed.</summary>
+    public void SetBranding(string accessToken, string? logo, string? primaryColor)
+    {
+        var current = _byAccessToken[accessToken];
+        _byAccessToken[accessToken] = current with { Logo = logo, PrimaryColor = primaryColor };
+    }
+
     /// <summary>Queues the next page <see cref="SyncTransactionsAsync"/> returns for this access token.</summary>
     public void EnqueueSync(string accessToken, PlaidSyncPage page) =>
         _syncPages.GetOrAdd(accessToken, _ => new()).Enqueue(() => page);
@@ -194,6 +201,21 @@ public sealed class FakePlaidClient : IPlaidClient
         }
 
         return Task.FromResult(new PlaidSyncPage([], [], [], cursor ?? "cursor-empty", false));
+    }
+
+    /// <summary>Every access token Plaid was asked to remove, in order.</summary>
+    public System.Collections.Concurrent.ConcurrentQueue<string> RemovedAccessTokens { get; } = new();
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, PlaidException> _removeFailures = new();
+
+    /// <summary>Makes the next remove for this access token fail the way Plaid would.</summary>
+    public void FailRemove(string accessToken, string errorCode, System.Net.HttpStatusCode status) =>
+        _removeFailures[accessToken] = new PlaidException(status, errorCode, "req-test");
+
+    public Task RemoveItemAsync(string accessToken, CancellationToken cancellationToken)
+    {
+        RemovedAccessTokens.Enqueue(accessToken);
+        return _removeFailures.TryRemove(accessToken, out var failure) ? throw failure : Task.CompletedTask;
     }
 
     public Task<string> CreateLinkTokenAsync(Guid userId, CancellationToken cancellationToken)

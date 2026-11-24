@@ -21,6 +21,10 @@ export type PlaidItem = {
   /** ISO timestamp, or null until the first sync commits. */
   lastSyncedAt: string | null;
   accounts: LinkedAccount[];
+  /** Base64 PNG of the bank's logo, or null when Plaid has none. Build a data URL from it to show. */
+  logo: string | null;
+  /** The bank's brand colour as #rrggbb, or null. */
+  primaryColor: string | null;
 };
 
 export type PlaidSyncResult = { added: number; modified: number; removed: number; lastSyncedAt: string };
@@ -51,6 +55,21 @@ export async function syncPlaidItem(id: string): Promise<PlaidSyncResult> {
     response.status === 409
       ? "A sync for this bank is already running."
       : "Could not sync this bank. Try again.",
+    response.status,
+  );
+}
+
+/** Disconnects one linked bank: revokes it at Plaid and deletes its accounts and transactions. */
+export async function unlinkPlaidItem(id: string): Promise<void> {
+  const response = await apiFetch(`/api/plaid/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (response.ok) {
+    return;
+  }
+
+  throw new ApiError(
+    response.status === 404
+      ? "This bank is already unlinked."
+      : "Could not unlink this bank. Nothing was deleted, so try again.",
     response.status,
   );
 }

@@ -30,6 +30,19 @@ namespace backend.Tests;
  * 16. Sync refreshes subtype and balance, for banks linked before they were stored.
  * 17. Listing items returns each account's subtype, balance and balance time.
  * 18. An account Plaid reports no balance for keeps a null balance and a null balance time.
+ * 19. Unlinking a bank revokes its token at Plaid, then deletes its transactions, accounts and the item.
+ * 20. Unlinking one bank leaves the same user's other bank untouched.
+ * 21. Unlinking another user's bank returns 404, calls Plaid not at all and deletes nothing.
+ * 22. An unknown item id returns 404.
+ * 23. When Plaid fails, unlink returns 502 and nothing is deleted, so it can be retried.
+ * 24. When Plaid says the item is already gone, unlink still deletes the local data and returns 204.
+ * 25. An unverified user cannot unlink (403), and an anonymous caller gets 401.
+ * 26. Linking stores the bank's logo and brand colour from Plaid.
+ * 27. Listing items returns each bank's logo and brand colour.
+ * 28. Sync refreshes the logo and colour for a bank linked before they were stored.
+ * 29. A logo that is not valid base64, or a colour that is not #rrggbb, is dropped; each is judged on its own.
+ * 30. A logo over the size cap is dropped.
+ * 31. A bank Plaid has no branding for keeps a null logo and colour.
  */
 public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
 {
@@ -336,6 +349,221 @@ public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
         var account = await WithDbAsync(_factory, db => db.Accounts.SingleAsync(row => row.UserId == userId));
         Assert.Null(account.CurrentBalance);
         Assert.Null(account.BalanceAsOf);
+    }
+
+    [Fact]
+    public async Task Unlink_RevokesTokenThenDeletesTransactionsAccountsAndItem()
+    {
+        var (userId, client, link) = await LinkedUserAsync(_factory);
+        _factory.Plaid.EnqueueSync(link.AccessToken, Page("c1", added: [Txn("t-1", link.PlaidAccountId, 5m, "2026-11-01", "One")]));
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/api/plaid/items/{link.ItemId}/sync", null)).StatusCode);
+
+        var response = await client.DeleteAsync($"/api/plaid/items/{link.ItemId}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Contains(link.AccessToken, _factory.Plaid.RemovedAccessTokens);
+        await WithDbAsync(_factory, async db =>
+        {
+            Assert.Empty(await db.Transactions.Where(row => row.UserId == userId).ToListAsync());
+            Assert.Empty(await db.Accounts.Where(row => row.UserId == userId).ToListAsync());
+            Assert.Empty(await db.PlaidItems.Where(row => row.UserId == userId).ToListAsync());
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Unlink_LeavesTheUsersOtherBankUntouched()
+    {
+        var (userId, client, first) = await LinkedUserAsync(_factory);
+        var publicToken = $"public-sandbox-{Guid.NewGuid():N}";
+        var otherAccountId = $"acct-{Guid.NewGuid():N}";
+        var other = _factory.Plaid.AddItem(publicToken, "Other Bank", new PlaidAccount(otherAccountId, "Checking", "1111", "depository"));
+        _factory.Plaid.EnqueueSync(other.AccessToken, Page("c1", added: [Txn("t-other-bank", otherAccountId, 7m, "2026-11-01", "Kept")]));
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/plaid/exchange", new PlaidExchangeRequest(publicToken))).StatusCode);
+
+        var response = await client.DeleteAsync($"/api/plaid/items/{first.ItemId}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        await WithDbAsync(_factory, async db =>
+        {
+            var item = await db.PlaidItems.SingleAsync(row => row.UserId == userId);
+            Assert.Equal("Other Bank", item.InstitutionName);
+            Assert.Equal("Kept", (await db.Transactions.SingleAsync(row => row.UserId == userId)).Description);
+            Assert.Equal(1, await db.Accounts.CountAsync(row => row.UserId == userId));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Unlink_AnotherUsersItem_Returns404_AndChangesNothing()
+    {
+        var (aliceId, _, aliceLink) = await LinkedUserAsync(_factory);
+        var (_, bobEmail) = await SeedUserAsync(_factory);
+        var bob = await SignedInAsync(_factory, bobEmail);
+
+        var response = await bob.DeleteAsync($"/api/plaid/items/{aliceLink.ItemId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.DoesNotContain(aliceLink.AccessToken, _factory.Plaid.RemovedAccessTokens);
+        await WithDbAsync(_factory, async db =>
+        {
+            Assert.Equal(1, await db.PlaidItems.CountAsync(row => row.UserId == aliceId));
+            Assert.Equal(2, await db.Accounts.CountAsync(row => row.UserId == aliceId));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Unlink_UnknownItem_Returns404()
+    {
+        var (_, client, _) = await LinkedUserAsync(_factory);
+
+        var response = await client.DeleteAsync($"/api/plaid/items/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Unlink_WhenPlaidFails_Returns502_AndDeletesNothing()
+    {
+        var (userId, client, link) = await LinkedUserAsync(_factory);
+        _factory.Plaid.FailRemove(link.AccessToken, "INTERNAL_SERVER_ERROR", HttpStatusCode.InternalServerError);
+
+        var response = await client.DeleteAsync($"/api/plaid/items/{link.ItemId}");
+
+        Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
+        await WithDbAsync(_factory, async db =>
+        {
+            Assert.Equal(1, await db.PlaidItems.CountAsync(row => row.UserId == userId));
+            Assert.Equal(2, await db.Accounts.CountAsync(row => row.UserId == userId));
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Unlink_WhenPlaidSaysItemAlreadyGone_StillDeletesLocalData()
+    {
+        var (userId, client, link) = await LinkedUserAsync(_factory);
+        _factory.Plaid.FailRemove(link.AccessToken, "ITEM_NOT_FOUND", HttpStatusCode.BadRequest);
+
+        var response = await client.DeleteAsync($"/api/plaid/items/{link.ItemId}");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        await WithDbAsync(_factory, async db =>
+        {
+            Assert.Empty(await db.PlaidItems.Where(row => row.UserId == userId).ToListAsync());
+            Assert.Empty(await db.Accounts.Where(row => row.UserId == userId).ToListAsync());
+            return 0;
+        });
+    }
+
+    [Fact]
+    public async Task Unlink_UnverifiedUser_IsForbidden_AndAnonymousIsUnauthorized()
+    {
+        var (_, email) = await SeedUserAsync(_factory, verified: false);
+        var unverified = await SignedInAsync(_factory, email);
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await unverified.DeleteAsync($"/api/plaid/items/{Guid.NewGuid()}")).StatusCode);
+
+        var anonymous = _factory.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.DeleteAsync($"/api/plaid/items/{Guid.NewGuid()}")).StatusCode);
+    }
+
+    private const string ValidLogo = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+    [Fact]
+    public async Task Exchange_StoresLogoAndColour()
+    {
+        var (userId, email) = await SeedUserAsync(_factory);
+        var client = await SignedInAsync(_factory, email);
+        var publicToken = $"public-sandbox-{Guid.NewGuid():N}";
+        var exchange = _factory.Plaid.AddItem(publicToken, "Logo Bank", new PlaidAccount($"acct-{Guid.NewGuid():N}", "Checking"));
+        _factory.Plaid.SetBranding(exchange.AccessToken, ValidLogo, "#00668f");
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/plaid/exchange", new PlaidExchangeRequest(publicToken))).StatusCode);
+
+        var item = await WithDbAsync(_factory, db => db.PlaidItems.SingleAsync(row => row.UserId == userId));
+        Assert.Equal(ValidLogo, item.InstitutionLogo);
+        Assert.Equal("#00668f", item.InstitutionColor);
+    }
+
+    [Fact]
+    public async Task ListItems_ReturnsLogoAndColour()
+    {
+        var (userId, client, _) = await LinkedUserAsync(_factory);
+        await WithDbAsync(_factory, async db =>
+        {
+            var item = await db.PlaidItems.SingleAsync(row => row.UserId == userId);
+            item.InstitutionLogo = ValidLogo;
+            item.InstitutionColor = "#095aa6";
+            return await db.SaveChangesAsync();
+        });
+
+        var items = (await client.GetFromJsonAsync<List<PlaidItemResponse>>("/api/plaid/items"))!;
+
+        var item = Assert.Single(items);
+        Assert.Equal(ValidLogo, item.Logo);
+        Assert.Equal("#095aa6", item.PrimaryColor);
+    }
+
+    [Fact]
+    public async Task Sync_RefreshesLogoAndColour()
+    {
+        var (userId, client, link) = await LinkedUserAsync(_factory);
+        _factory.Plaid.SetBranding(link.AccessToken, ValidLogo, "#123456");
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/api/plaid/items/{link.ItemId}/sync", null)).StatusCode);
+
+        var item = await WithDbAsync(_factory, db => db.PlaidItems.SingleAsync(row => row.UserId == userId));
+        Assert.Equal(ValidLogo, item.InstitutionLogo);
+        Assert.Equal("#123456", item.InstitutionColor);
+    }
+
+    [Theory]
+    [InlineData("not base64 !!<script>", "#00668f", false, true)]
+    [InlineData(ValidLogo, "red; background:url(x)", true, false)]
+    [InlineData(ValidLogo, "#12345", true, false)]
+    [InlineData(ValidLogo, "#00668F", true, true)]
+    public async Task Exchange_KeepsOnlyValidLogoAndColour(string logo, string colour, bool logoKept, bool colourKept)
+    {
+        var (userId, email) = await SeedUserAsync(_factory);
+        var client = await SignedInAsync(_factory, email);
+        var publicToken = $"public-sandbox-{Guid.NewGuid():N}";
+        var exchange = _factory.Plaid.AddItem(publicToken, "Odd Bank", new PlaidAccount($"acct-{Guid.NewGuid():N}", "Checking"));
+        _factory.Plaid.SetBranding(exchange.AccessToken, logo, colour);
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/plaid/exchange", new PlaidExchangeRequest(publicToken))).StatusCode);
+
+        var item = await WithDbAsync(_factory, db => db.PlaidItems.SingleAsync(row => row.UserId == userId));
+        Assert.Equal(logoKept ? logo : null, item.InstitutionLogo);
+        Assert.Equal(colourKept ? colour : null, item.InstitutionColor);
+    }
+
+    [Fact]
+    public async Task Exchange_DropsAnOversizeLogo()
+    {
+        var (userId, email) = await SeedUserAsync(_factory);
+        var client = await SignedInAsync(_factory, email);
+        var publicToken = $"public-sandbox-{Guid.NewGuid():N}";
+        var exchange = _factory.Plaid.AddItem(publicToken, "Big Bank", new PlaidAccount($"acct-{Guid.NewGuid():N}", "Checking"));
+        _factory.Plaid.SetBranding(exchange.AccessToken, new string('A', 40_000), "#00668f");
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/plaid/exchange", new PlaidExchangeRequest(publicToken))).StatusCode);
+
+        var item = await WithDbAsync(_factory, db => db.PlaidItems.SingleAsync(row => row.UserId == userId));
+        Assert.Null(item.InstitutionLogo);
+        Assert.Equal("#00668f", item.InstitutionColor);
+    }
+
+    [Fact]
+    public async Task Exchange_BankWithoutBranding_KeepsLogoAndColourNull()
+    {
+        var (userId, _, _) = await LinkedUserAsync(_factory);
+
+        var item = await WithDbAsync(_factory, db => db.PlaidItems.SingleAsync(row => row.UserId == userId));
+
+        Assert.Null(item.InstitutionLogo);
+        Assert.Null(item.InstitutionColor);
     }
 
     [Fact]

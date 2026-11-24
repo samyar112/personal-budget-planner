@@ -120,6 +120,8 @@ public class AppDbContext : DbContext
             entity.Property(item => item.EncryptedAccessToken).HasMaxLength(1000);
             entity.Property(item => item.InstitutionId).HasMaxLength(100);
             entity.Property(item => item.InstitutionName).HasMaxLength(200);
+            entity.Property(item => item.InstitutionLogo).HasMaxLength(PlaidItem.MaxLogoLength);
+            entity.Property(item => item.InstitutionColor).HasMaxLength(7);
             entity.Property(item => item.SyncCursor).HasMaxLength(1000);
             // Of two syncs racing on one item only the first may save; the loser's cursor is discarded.
             entity.Property(item => item.LastSyncedAt).IsConcurrencyToken();

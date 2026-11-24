@@ -23,6 +23,7 @@ public sealed class PlaidController(
     IPlaidClient plaid,
     AccessTokenProtector protector,
     PlaidSyncService syncService,
+    PlaidUnlinkService unlinkService,
     ILogger<PlaidController> logger) : ControllerBase
 {
     private const int MaxPublicTokenLength = 200;
@@ -102,6 +103,8 @@ public sealed class PlaidController(
             EncryptedAccessToken = protector.Protect(exchange.AccessToken, userId),
             InstitutionId = details.InstitutionId,
             InstitutionName = details.InstitutionName,
+            InstitutionLogo = InstitutionBranding.CleanLogo(details.Logo),
+            InstitutionColor = InstitutionBranding.CleanColor(details.PrimaryColor),
         };
         db.PlaidItems.Add(item);
 
@@ -162,7 +165,7 @@ public sealed class PlaidController(
             .AsNoTracking()
             .Where(item => item.UserId == userId)
             .OrderBy(item => item.CreatedAt)
-            .Select(item => new { item.Id, item.InstitutionName, item.LastSyncedAt })
+            .Select(item => new { item.Id, item.InstitutionName, item.LastSyncedAt, item.InstitutionLogo, item.InstitutionColor })
             .ToListAsync(cancellationToken);
 
         var itemIds = items.Select(item => item.Id).ToList();
@@ -180,7 +183,9 @@ public sealed class PlaidController(
                 item.Id,
                 item.InstitutionName,
                 item.LastSyncedAt,
-                byItem[item.Id].Select(ToResponse).ToList()))
+                byItem[item.Id].Select(ToResponse).ToList(),
+                item.InstitutionLogo,
+                item.InstitutionColor))
             .ToList());
     }
 
@@ -209,6 +214,31 @@ public sealed class PlaidController(
                 outcome.Added, outcome.Modified, outcome.Removed, outcome.LastSyncedAt!.Value)),
             PlaidSyncStatus.NotFound => NotFound(),
             PlaidSyncStatus.Conflict => Conflict(new { message = "A sync for this bank is already running." }),
+            _ => StatusCode(StatusCodes.Status502BadGateway),
+        };
+    }
+
+    /// <summary>
+    /// Disconnects one of the caller's banks: revokes it at Plaid, then deletes its accounts and
+    /// transactions. 502 when Plaid fails, in which case nothing was deleted and a retry is safe.
+    /// </summary>
+    [HttpDelete("items/{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> Unlink(Guid id, CancellationToken cancellationToken)
+    {
+        if (CallerId() is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        return await unlinkService.UnlinkAsync(userId, id, cancellationToken) switch
+        {
+            PlaidUnlinkStatus.Unlinked => NoContent(),
+            PlaidUnlinkStatus.NotFound => NotFound(),
             _ => StatusCode(StatusCodes.Status502BadGateway),
         };
     }

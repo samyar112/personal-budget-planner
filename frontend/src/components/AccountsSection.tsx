@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/auth";
-import { fetchPlaidItems, syncPlaidItem, type LinkedAccount, type PlaidItem } from "../api/plaid";
+import { fetchPlaidItems, syncPlaidItem, unlinkPlaidItem, type LinkedAccount, type PlaidItem } from "../api/plaid";
+import { BRAND_NAME } from "./BrandName";
 import ConnectBankButton from "./ConnectBankButton";
 
 const CARD_STYLES = ["payment-card--navy", "payment-card--orange", "payment-card--green"] as const;
@@ -42,6 +43,31 @@ function sortedAccounts(item: PlaidItem): LinkedAccount[] {
   return [...item.accounts].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
+
+/** Black or white, whichever reads better on the colour. Plain luminance is enough for an initial. */
+function textOn(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#1c2733" : "#ffffff";
+}
+
+/**
+ * The bank's logo when Plaid has one, else its first letter on the brand colour. Plaid is a third
+ * party, so the values are checked again here before they reach an img src or a style.
+ */
+const BankLogo = ({ name, logo, color }: { name: string; logo: string | null; color: string | null }) => {
+  if (logo && BASE64.test(logo)) {
+    return <img className="bank-logo" src={`data:image/png;base64,${logo}`} alt="" width={24} height={24} />;
+  }
+  const background = color && HEX_COLOR.test(color) ? color : "#64748b";
+  return (
+    <span className="bank-logo bank-logo--initial" style={{ background, color: textOn(background) }} aria-hidden="true">
+      {name.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+};
+
 type SyncState = { busy: boolean; message?: string; error?: boolean };
 
 /**
@@ -54,6 +80,9 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
   >({ status: "loading" });
   const [sync, setSync] = useState<Record<string, SyncState>>({});
   const [attempt, setAttempt] = useState(0);
+  // Unlink deletes data, so it asks first: the bank id being confirmed, and any error from the last try.
+  const [confirmingUnlink, setConfirmingUnlink] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<SyncState>({ busy: false });
   // Banks start collapsed so the section stays one short row per bank; cards show on expand.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -77,15 +106,8 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
   const handleSync = async (id: string) => {
     setSync((current) => ({ ...current, [id]: { busy: true } }));
     try {
-      const result = await syncPlaidItem(id);
-      const changed = result.added + result.modified + result.removed;
-      setSync((current) => ({
-        ...current,
-        [id]: {
-          busy: false,
-          message: changed === 0 ? "Up to date." : `${result.added} new, ${result.modified} updated, ${result.removed} removed.`,
-        },
-      }));
+      await syncPlaidItem(id);
+      setSync((current) => ({ ...current, [id]: { busy: false, message: "Up to date." } }));
       setAttempt((value) => value + 1);
       onChanged();
     } catch (err) {
@@ -97,6 +119,23 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
           message: err instanceof ApiError ? err.message : "Could not sync this bank. Try again.",
         },
       }));
+    }
+  };
+
+  const handleUnlink = async (id: string) => {
+    setUnlinking({ busy: true });
+    try {
+      await unlinkPlaidItem(id);
+      setConfirmingUnlink(null);
+      setUnlinking({ busy: false });
+      setAttempt((value) => value + 1);
+      onChanged();
+    } catch (err) {
+      setUnlinking({
+        busy: false,
+        error: true,
+        message: err instanceof ApiError ? err.message : "Could not unlink this bank. Nothing was deleted, so try again.",
+      });
     }
   };
 
@@ -131,7 +170,7 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                 <h5 className="mb-2">Connect your first bank</h5>
                 <p className="text-body-secondary mx-auto mb-3" style={{ maxWidth: "34rem" }}>
                   Link a bank or credit card to bring your accounts and transactions into one ledger.
-                  Access is read-only, so VaultBudget can never move money, and identifying details are
+                  Access is read-only, so {BRAND_NAME} can never move money, and identifying details are
                   stripped before anything reaches the AI.
                 </p>
                 <div className="d-flex flex-wrap justify-content-center gap-2">
@@ -159,7 +198,8 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                       onClick={() => setExpanded((current) => ({ ...current, [item.id]: !isOpen }))}
                     >
                       <span className="bank-panel__chevron" aria-hidden="true">{isOpen ? "▾" : "▸"}</span>
-                      <span className="bank-row__name">🏦 {item.institution ?? "Linked bank"}</span>
+                      <BankLogo name={item.institution ?? "Bank"} logo={item.logo} color={item.primaryColor} />
+                      <span className="bank-row__name">{item.institution ?? "Linked bank"}</span>
                       <span className="bank-row__synced">
                         {accounts.length} {accounts.length === 1 ? "account" : "accounts"} · {syncedAgo(item.lastSyncedAt)}
                       </span>
@@ -211,15 +251,17 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                         </ul>
                       )}
                       {cards.length > 0 && (
-                        <div className="row g-2 mt-1">
+                        <h6 className="bank-panel__heading mt-3 mb-2">{cards.length === 1 ? "Credit Card" : "Credit Cards"}</h6>
+                      )}
+                      {cards.length > 0 && (
+                        <div className="row g-2">
                           {cards.map((card, index) => (
                             <div className="col-sm-6 col-xl-4" key={card.id}>
                               <div className={`payment-card payment-card--compact ${CARD_STYLES[index % CARD_STYLES.length]}`}>
                                 <div className="payment-card__top">
-                                  <span className="payment-card__kind">{kindLabel(card)}</span>
+                                  <div className="payment-card__name">{card.name.replace(/^Plaid /, "")}</div>
                                   <span className="card-chip" aria-hidden="true" />
                                 </div>
-                                <div className="payment-card__name">{card.name.replace(/^Plaid /, "")}</div>
                                 <div className="payment-card__num">•••• {card.mask ?? "····"}</div>
                                 {card.currentBalance !== null && (
                                   <div className="payment-card__balance">
@@ -235,6 +277,50 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                           ))}
                         </div>
                       )}
+
+                      <div className="bank-panel__footer">
+                        {confirmingUnlink === item.id ? (
+                          <div className="bank-panel__confirm" role="alertdialog" aria-label={`Unlink ${item.institution ?? "this bank"}`}>
+                            <span className="small">
+                              Unlink {item.institution ?? "this bank"}? This deletes its accounts and all of its transactions from{" "}
+                              {BRAND_NAME}.
+                            </span>
+                            {unlinking.error && <span className="small text-danger" role="alert">{unlinking.message}</span>}
+                            <div className="d-flex gap-2">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() => {
+                                  setConfirmingUnlink(null);
+                                  setUnlinking({ busy: false });
+                                }}
+                                disabled={unlinking.busy}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-danger"
+                                onClick={() => handleUnlink(item.id)}
+                                disabled={unlinking.busy}
+                              >
+                                {unlinking.busy ? "Unlinking…" : "Yes, unlink"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => {
+                              setConfirmingUnlink(item.id);
+                              setUnlinking({ busy: false });
+                            }}
+                          >
+                            Unlink bank
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </section>

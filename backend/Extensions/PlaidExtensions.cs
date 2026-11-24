@@ -23,6 +23,7 @@ public static class PlaidExtensions
 
         services.AddSingleton<AccessTokenProtector>();
         services.AddScoped<PlaidSyncService>();
+        services.AddScoped<PlaidUnlinkService>();
         services.AddHttpClient<IPlaidClient, PlaidClient>((provider, http) =>
         {
             http.BaseAddress = provider.GetRequiredService<IOptions<PlaidOptions>>().Value.BaseAddress;
