@@ -18,7 +18,14 @@ public sealed record PlaidExchangeResponse(
 /// One linked account. <c>Mask</c> is the last 4 digits for display; <c>Type</c> is Plaid's
 /// (depository, credit, loan, investment, other), which the dashboard uses to pick out cards.
 /// </summary>
-public sealed record LinkedAccountResponse(Guid Id, string Name, string? Mask, string? Type);
+public sealed record LinkedAccountResponse(
+    Guid Id,
+    string Name,
+    string? Mask,
+    string? Type,
+    string? Subtype = null,
+    decimal? CurrentBalance = null,
+    DateTime? BalanceAsOf = null);
 
 /// <summary>
 /// One linked bank. <c>Id</c> is our own id, used to ask for a sync; Plaid's item id is never

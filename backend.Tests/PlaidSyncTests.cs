@@ -26,6 +26,10 @@ namespace backend.Tests;
  * 12. When another sync of the same item commits first, this one returns 409 and the winner's cursor stands.
  * 13. Sync refreshes each account's mask and type from Plaid, for banks linked before they were stored.
  * 14. Sync stores Plaid's category and subcategory, falls back to keywords then OTHER, and a modified row is recategorised.
+ * 15. Linking stores each account's subtype, current balance and when the balance was read.
+ * 16. Sync refreshes subtype and balance, for banks linked before they were stored.
+ * 17. Listing items returns each account's subtype, balance and balance time.
+ * 18. An account Plaid reports no balance for keeps a null balance and a null balance time.
  */
 public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
 {
@@ -263,6 +267,78 @@ public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
     }
 
     [Fact]
+    public async Task Exchange_StoresSubtypeAndBalance()
+    {
+        var before = DateTime.UtcNow.AddSeconds(-1);
+        var (userId, _, _) = await LinkedUserAsync(_factory);
+
+        var rows = await WithDbAsync(_factory, db => db.Accounts.Where(row => row.UserId == userId).ToListAsync());
+
+        var checking = rows.Single(row => row.Name == "Checking");
+        Assert.Equal("checking", checking.Subtype);
+        Assert.Equal(1234.56m, checking.CurrentBalance);
+        Assert.True(checking.BalanceAsOf >= before);
+        var card = rows.Single(row => row.Name == "Credit Card");
+        Assert.Equal("credit card", card.Subtype);
+        Assert.Equal(250.10m, card.CurrentBalance);
+    }
+
+    [Fact]
+    public async Task Sync_RefreshesSubtypeAndBalance()
+    {
+        var (userId, client, link) = await LinkedUserAsync(_factory);
+        await WithDbAsync(_factory, async db =>
+        {
+            // As if linked before Subtype and balances existed.
+            foreach (var account in db.Accounts.Where(row => row.UserId == userId))
+            {
+                account.Subtype = null;
+                account.CurrentBalance = null;
+                account.BalanceAsOf = null;
+            }
+
+            return await db.SaveChangesAsync();
+        });
+
+        var response = await client.PostAsync($"/api/plaid/items/{link.ItemId}/sync", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var card = await WithDbAsync(_factory, db => db.Accounts.SingleAsync(row => row.UserId == userId && row.Name == "Credit Card"));
+        Assert.Equal("credit card", card.Subtype);
+        Assert.Equal(250.10m, card.CurrentBalance);
+        Assert.NotNull(card.BalanceAsOf);
+    }
+
+    [Fact]
+    public async Task ListItems_ReturnsSubtypeBalanceAndBalanceTime()
+    {
+        var (_, client, _) = await LinkedUserAsync(_factory);
+
+        var items = (await client.GetFromJsonAsync<List<PlaidItemResponse>>("/api/plaid/items"))!;
+
+        var checking = Assert.Single(items).Accounts.Single(account => account.Name == "Checking");
+        Assert.Equal("checking", checking.Subtype);
+        Assert.Equal(1234.56m, checking.CurrentBalance);
+        Assert.NotNull(checking.BalanceAsOf);
+    }
+
+    [Fact]
+    public async Task Exchange_AccountWithoutBalance_KeepsBalanceAndTimeNull()
+    {
+        var (userId, email) = await SeedUserAsync(_factory);
+        var client = await SignedInAsync(_factory, email);
+        var publicToken = $"public-sandbox-{Guid.NewGuid():N}";
+        _factory.Plaid.AddItem(publicToken, "Sandbox Bank", new PlaidAccount($"acct-{Guid.NewGuid():N}", "Brokerage", "9999", "investment"));
+
+        var response = await client.PostAsJsonAsync("/api/plaid/exchange", new PlaidExchangeRequest(publicToken));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var account = await WithDbAsync(_factory, db => db.Accounts.SingleAsync(row => row.UserId == userId));
+        Assert.Null(account.CurrentBalance);
+        Assert.Null(account.BalanceAsOf);
+    }
+
+    [Fact]
     public async Task Sync_TransactionForUnsharedAccount_IsSkipped()
     {
         var (userId, client, link) = await LinkedUserAsync(_factory);
@@ -319,8 +395,8 @@ public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
         var exchange = factory.Plaid.AddItem(
             publicToken,
             institution,
-            new PlaidAccount(checkingId, "Checking", "0000", "depository"),
-            new PlaidAccount($"acct-{Guid.NewGuid():N}", "Credit Card", "3333", "credit"));
+            new PlaidAccount(checkingId, "Checking", "0000", "depository", "checking", 1234.56m),
+            new PlaidAccount($"acct-{Guid.NewGuid():N}", "Credit Card", "3333", "credit", "credit card", 250.10m));
 
         var response = await client.PostAsJsonAsync("/api/plaid/exchange", new PlaidExchangeRequest(publicToken));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
