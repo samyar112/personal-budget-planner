@@ -196,6 +196,21 @@ public sealed class FakePlaidClient : IPlaidClient
         return Task.FromResult(new PlaidSyncPage([], [], [], cursor ?? "cursor-empty", false));
     }
 
+    /// <summary>Every access token Plaid was asked to remove, in order.</summary>
+    public System.Collections.Concurrent.ConcurrentQueue<string> RemovedAccessTokens { get; } = new();
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, PlaidException> _removeFailures = new();
+
+    /// <summary>Makes the next remove for this access token fail the way Plaid would.</summary>
+    public void FailRemove(string accessToken, string errorCode, System.Net.HttpStatusCode status) =>
+        _removeFailures[accessToken] = new PlaidException(status, errorCode, "req-test");
+
+    public Task RemoveItemAsync(string accessToken, CancellationToken cancellationToken)
+    {
+        RemovedAccessTokens.Enqueue(accessToken);
+        return _removeFailures.TryRemove(accessToken, out var failure) ? throw failure : Task.CompletedTask;
+    }
+
     public Task<string> CreateLinkTokenAsync(Guid userId, CancellationToken cancellationToken)
     {
         LinkTokenUsers.Add(userId);

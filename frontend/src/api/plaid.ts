@@ -55,6 +55,21 @@ export async function syncPlaidItem(id: string): Promise<PlaidSyncResult> {
   );
 }
 
+/** Disconnects one linked bank: revokes it at Plaid and deletes its accounts and transactions. */
+export async function unlinkPlaidItem(id: string): Promise<void> {
+  const response = await apiFetch(`/api/plaid/items/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (response.ok) {
+    return;
+  }
+
+  throw new ApiError(
+    response.status === 404
+      ? "This bank is already unlinked."
+      : "Could not unlink this bank. Nothing was deleted, so try again.",
+    response.status,
+  );
+}
+
 export type PlaidExchangeResult = {
   institution: string | null;
   accounts: LinkedAccount[];

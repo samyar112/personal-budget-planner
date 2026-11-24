@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/auth";
-import { fetchPlaidItems, syncPlaidItem, type LinkedAccount, type PlaidItem } from "../api/plaid";
+import { fetchPlaidItems, syncPlaidItem, unlinkPlaidItem, type LinkedAccount, type PlaidItem } from "../api/plaid";
 import ConnectBankButton from "./ConnectBankButton";
 
 const CARD_STYLES = ["payment-card--navy", "payment-card--orange", "payment-card--green"] as const;
@@ -54,6 +54,9 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
   >({ status: "loading" });
   const [sync, setSync] = useState<Record<string, SyncState>>({});
   const [attempt, setAttempt] = useState(0);
+  // Unlink deletes data, so it asks first: the bank id being confirmed, and any error from the last try.
+  const [confirmingUnlink, setConfirmingUnlink] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState<SyncState>({ busy: false });
   // Banks start collapsed so the section stays one short row per bank; cards show on expand.
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -97,6 +100,23 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
           message: err instanceof ApiError ? err.message : "Could not sync this bank. Try again.",
         },
       }));
+    }
+  };
+
+  const handleUnlink = async (id: string) => {
+    setUnlinking({ busy: true });
+    try {
+      await unlinkPlaidItem(id);
+      setConfirmingUnlink(null);
+      setUnlinking({ busy: false });
+      setAttempt((value) => value + 1);
+      onChanged();
+    } catch (err) {
+      setUnlinking({
+        busy: false,
+        error: true,
+        message: err instanceof ApiError ? err.message : "Could not unlink this bank. Nothing was deleted, so try again.",
+      });
     }
   };
 
@@ -235,6 +255,50 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                           ))}
                         </div>
                       )}
+
+                      <div className="bank-panel__footer">
+                        {confirmingUnlink === item.id ? (
+                          <div className="bank-panel__confirm" role="alertdialog" aria-label={`Unlink ${item.institution ?? "this bank"}`}>
+                            <span className="small">
+                              Unlink {item.institution ?? "this bank"}? This deletes its accounts and all of its transactions from
+                              VaultBudget.
+                            </span>
+                            {unlinking.error && <span className="small text-danger" role="alert">{unlinking.message}</span>}
+                            <div className="d-flex gap-2">
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() => {
+                                  setConfirmingUnlink(null);
+                                  setUnlinking({ busy: false });
+                                }}
+                                disabled={unlinking.busy}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-danger"
+                                onClick={() => handleUnlink(item.id)}
+                                disabled={unlinking.busy}
+                              >
+                                {unlinking.busy ? "Unlinking…" : "Yes, unlink"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => {
+                              setConfirmingUnlink(item.id);
+                              setUnlinking({ busy: false });
+                            }}
+                          >
+                            Unlink bank
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </section>

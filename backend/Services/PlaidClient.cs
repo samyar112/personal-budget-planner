@@ -19,6 +19,9 @@ public interface IPlaidClient
 
     /// <summary>One page of changes since <paramref name="cursor"/>; null means from the beginning.</summary>
     Task<PlaidSyncPage> SyncTransactionsAsync(string accessToken, string? cursor, CancellationToken cancellationToken);
+
+    /// <summary>Revokes the access token and ends the link at Plaid. After this the token is useless.</summary>
+    Task RemoveItemAsync(string accessToken, CancellationToken cancellationToken);
 }
 
 public sealed record PlaidExchangeResult(string AccessToken, string ItemId);
@@ -134,6 +137,12 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
                 .ToList());
     }
 
+    public async Task RemoveItemAsync(string accessToken, CancellationToken cancellationToken) =>
+        await PostAsync<ItemRemoveResponse>(
+            "item/remove",
+            new { client_id = _options.ClientId, secret = _options.Secret, access_token = accessToken },
+            cancellationToken);
+
     public async Task<PlaidSyncPage> SyncTransactionsAsync(
         string accessToken,
         string? cursor,
@@ -203,6 +212,9 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
     private sealed record PublicTokenExchangeResponse(
         [property: JsonPropertyName("access_token")] string AccessToken,
         [property: JsonPropertyName("item_id")] string ItemId);
+
+    private sealed record ItemRemoveResponse(
+        [property: JsonPropertyName("request_id")] string? RequestId);
 
     private sealed record AccountsGetResponse(
         [property: JsonPropertyName("accounts")] IReadOnlyList<AccountEntry> Accounts,

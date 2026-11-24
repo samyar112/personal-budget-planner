@@ -446,6 +446,22 @@
   color: var(--muted-foreground);
 }
 
+/* Bottom right of an expanded bank: the destructive action, away from Sync now. */
+.bank-panel__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.bank-panel__confirm {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 28rem;
+  text-align: right;
+}
+
 .bank-row__name {
   font-weight: 600;
 }
