@@ -19,8 +19,6 @@ export type TransactionList = {
   total: number;
 };
 
-const MAX_PAGE_SIZE = 100;
-
 /** One page of the caller's ledger, newest first. Dates are inclusive yyyy-MM-dd. */
 export async function fetchTransactions(options: {
   from?: string;
@@ -50,29 +48,27 @@ export async function fetchTransactions(options: {
   );
 }
 
-/** Every row in a date range, fetched page by page until the reported total is reached. */
-export async function fetchAllTransactions(range: { from: string; to: string }): Promise<Transaction[]> {
-  const rows: Transaction[] = [];
-  for (let page = 1; ; page++) {
-    const result = await fetchTransactions({ ...range, page, pageSize: MAX_PAGE_SIZE });
-    rows.push(...result.items);
-    if (result.items.length === 0 || rows.length >= result.total) {
-      return rows;
-    }
-  }
-}
+export type AccountSummary = { accountId: string; income: number; expenses: number; net: number };
 
-export type LedgerSummary = { income: number; expenses: number; savings: number };
+/**
+ * Income, expenses and savings for a date range, per account and in total, computed by the server.
+ * Transfers and credit card payments are left out, and the totals are the sum of the accounts.
+ */
+export type TransactionSummary = { income: number; expenses: number; savings: number; accounts: AccountSummary[] };
 
-/** Income is money in, expenses is money out as a positive number, savings is what is left. */
-export function summarize(rows: Transaction[]): LedgerSummary {
-  let income = 0;
-  let expenses = 0;
-  for (const row of rows) {
-    if (row.amount >= 0) income += row.amount;
-    else expenses += -row.amount;
+/** The caller's summary for an inclusive yyyy-MM-dd range. */
+export async function fetchSummary(range: { from: string; to: string }): Promise<TransactionSummary> {
+  const response = await apiFetch(`/api/transactions/summary?${new URLSearchParams(range)}`);
+  if (response.ok) {
+    return (await response.json()) as TransactionSummary;
   }
-  return { income, expenses, savings: income - expenses };
+
+  throw new ApiError(
+    response.status === 403
+      ? "Verify your email to see your transactions."
+      : "Could not load your summary. Try again.",
+    response.status,
+  );
 }
 
 /** Local calendar date as yyyy-MM-dd. Not toISOString, which shifts to UTC. */

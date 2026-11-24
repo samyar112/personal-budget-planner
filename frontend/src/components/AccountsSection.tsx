@@ -1,72 +1,16 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/auth";
-import { fetchPlaidItems, syncPlaidItem, unlinkPlaidItem, type LinkedAccount, type PlaidItem } from "../api/plaid";
+import { fetchPlaidItems, syncPlaidItem, unlinkPlaidItem, type PlaidItem } from "../api/plaid";
 import { BRAND_NAME } from "./BrandName";
+import { ago, balanceLabel, kindLabel, money, sortedAccounts } from "./accountDisplay";
+import BankLogo from "./BankLogo";
 import ConnectBankButton from "./ConnectBankButton";
 
 const CARD_STYLES = ["payment-card--navy", "payment-card--orange", "payment-card--green"] as const;
-const TYPE_ORDER = ["depository", "credit", "loan", "investment"];
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
-
-/** "just now", "5 min ago", "3 h ago", "2 days ago". Coarse on purpose: it is a freshness hint. */
-function ago(iso: string): string {
-  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} ${days === 1 ? "day" : "days"} ago`;
-}
 
 function syncedAgo(iso: string | null): string {
   return iso ? `Synced ${ago(iso)}` : "Never synced";
 }
-
-/** The tile's small label: Plaid's subtype when known ("Credit card"), else a plain word for the type. */
-function kindLabel(account: LinkedAccount): string {
-  const raw = account.subtype ?? (account.type === "depository" ? "account" : (account.type ?? "account"));
-  return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
-
-/** Credit and loan balances are what you owe, so the tile says so instead of reading as money you have. */
-function balanceLabel(account: LinkedAccount): string {
-  return account.type === "credit" || account.type === "loan" ? "Balance owed" : "Balance";
-}
-
-/** Depository first, then cards, loans and the rest; by name inside a type so the order never jumps. */
-function sortedAccounts(item: PlaidItem): LinkedAccount[] {
-  const rank = (account: LinkedAccount) => {
-    const index = TYPE_ORDER.indexOf(account.type ?? "");
-    return index === -1 ? TYPE_ORDER.length : index;
-  };
-  return [...item.accounts].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
-}
-
-const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
-const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
-
-/** Black or white, whichever reads better on the colour. Plain luminance is enough for an initial. */
-function textOn(hex: string): string {
-  const [r, g, b] = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16));
-  return (r * 299 + g * 587 + b * 114) / 1000 > 150 ? "#1c2733" : "#ffffff";
-}
-
-/**
- * The bank's logo when Plaid has one, else its first letter on the brand colour. Plaid is a third
- * party, so the values are checked again here before they reach an img src or a style.
- */
-const BankLogo = ({ name, logo, color }: { name: string; logo: string | null; color: string | null }) => {
-  if (logo && BASE64.test(logo)) {
-    return <img className="bank-logo" src={`data:image/png;base64,${logo}`} alt="" width={24} height={24} />;
-  }
-  const background = color && HEX_COLOR.test(color) ? color : "#64748b";
-  return (
-    <span className="bank-logo bank-logo--initial" style={{ background, color: textOn(background) }} aria-hidden="true">
-      {name.trim().charAt(0).toUpperCase() || "?"}
-    </span>
-  );
-};
 
 type SyncState = { busy: boolean; message?: string; error?: boolean };
 

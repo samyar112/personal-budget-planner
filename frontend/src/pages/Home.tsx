@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError } from "../api/auth";
-import { fetchAllTransactions, formatMoney, summarize, toDateString, type LedgerSummary } from "../api/transactions";
+import { fetchSummary, formatMoney, toDateString, type TransactionSummary } from "../api/transactions";
+import AccountSummaryCards from "../components/AccountSummaryCards";
 import ConnectBankButton from "../components/ConnectBankButton";
 
 const Home = () => {
   const [summary, setSummary] = useState<
-    { status: "loading" } | { status: "error"; message: string } | { status: "ready"; summary: LedgerSummary }
+    { status: "loading" } | { status: "error"; message: string } | { status: "ready"; summary: TransactionSummary }
   >({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -19,13 +20,13 @@ const Home = () => {
         const today = new Date();
         const windowStart = new Date(today);
         windowStart.setDate(today.getDate() - 29);
-        const rows = await fetchAllTransactions({ from: toDateString(windowStart), to: toDateString(today) });
-        if (!cancelled) setSummary({ status: "ready", summary: summarize(rows) });
+        const result = await fetchSummary({ from: toDateString(windowStart), to: toDateString(today) });
+        if (!cancelled) setSummary({ status: "ready", summary: result });
       } catch (err) {
         if (!cancelled) {
           setSummary({
             status: "error",
-            message: err instanceof ApiError ? err.message : "Could not load transactions. Try again.",
+            message: err instanceof ApiError ? err.message : "Could not load your summary. Try again.",
           });
         }
       }
@@ -98,6 +99,8 @@ const Home = () => {
           </div>
         ))}
       </div>
+
+      {summary.status === "ready" && <AccountSummaryCards accounts={summary.summary.accounts} reloadKey={attempt} />}
 
       <Link className="btn btn-secondary btn-sm text-nav" to="/transactions">
         View transactions →
