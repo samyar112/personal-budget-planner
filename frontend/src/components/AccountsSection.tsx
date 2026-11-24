@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/auth";
 import { fetchPlaidItems, syncPlaidItem, unlinkPlaidItem, type LinkedAccount, type PlaidItem } from "../api/plaid";
+import { BRAND_NAME } from "./BrandName";
 import ConnectBankButton from "./ConnectBankButton";
 
 const CARD_STYLES = ["payment-card--navy", "payment-card--orange", "payment-card--green"] as const;
@@ -151,7 +152,7 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                 <h5 className="mb-2">Connect your first bank</h5>
                 <p className="text-body-secondary mx-auto mb-3" style={{ maxWidth: "34rem" }}>
                   Link a bank or credit card to bring your accounts and transactions into one ledger.
-                  Access is read-only, so VaultBudget can never move money, and identifying details are
+                  Access is read-only, so {BRAND_NAME} can never move money, and identifying details are
                   stripped before anything reaches the AI.
                 </p>
                 <div className="d-flex flex-wrap justify-content-center gap-2">
@@ -260,8 +261,8 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                         {confirmingUnlink === item.id ? (
                           <div className="bank-panel__confirm" role="alertdialog" aria-label={`Unlink ${item.institution ?? "this bank"}`}>
                             <span className="small">
-                              Unlink {item.institution ?? "this bank"}? This deletes its accounts and all of its transactions from
-                              VaultBudget.
+                              Unlink {item.institution ?? "this bank"}? This deletes its accounts and all of its transactions from{" "}
+                              {BRAND_NAME}.
                             </span>
                             {unlinking.error && <span className="small text-danger" role="alert">{unlinking.message}</span>}
                             <div className="d-flex gap-2">
