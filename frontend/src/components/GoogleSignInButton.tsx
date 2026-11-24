@@ -1,15 +1,10 @@
-import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
-
-type GoogleUser = {
-  name: string;
-  email: string;
-  picture?: string;
-};
+import { useEffect, useRef, useState } from "react";
+import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 
 type GoogleSignInButtonProps = {
   disabled?: boolean;
-  onStart?: () => void;
-  onSuccess: (user: GoogleUser) => void;
+  /** Receives Google's signed ID token. The backend verifies it; the browser never trusts it. */
+  onCredential: (idToken: string) => void;
   onError: (message: string) => void;
 };
 
@@ -38,67 +33,64 @@ const GoogleIcon = () => (
   </span>
 );
 
-const GoogleSignInButtonConfigured = ({
-  disabled = false,
-  onStart,
-  onSuccess,
-  onError,
-}: GoogleSignInButtonProps) => {
-  const login = useGoogleLogin({
-    onSuccess: async (tokenResponse) => {
-      try {
-        const response = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
-          headers: {
-            Authorization: `Bearer ${tokenResponse.access_token}`,
-          },
-        });
+/** Google's rendered button is 400px wide (its maximum) and 40px tall at size "large". */
+const GOOGLE_BUTTON_WIDTH = 400;
+const GOOGLE_BUTTON_HEIGHT = 40;
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch Google profile.");
-        }
+/**
+ * Our green button is what the user sees. Google's real button is stretched over it and made
+ * invisible, because Google only offers a fixed look in a cross-origin iframe: a click lands on
+ * Google's button, so the ID-token flow still works.
+ */
+const GoogleSignInButtonConfigured = ({ disabled = false, onCredential, onError }: GoogleSignInButtonProps) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState({ x: 1, y: 1 });
 
-        const profile = (await response.json()) as {
-          name?: string;
-          email?: string;
-          picture?: string;
-        };
+  useEffect(() => {
+    const element = wrapperRef.current;
+    if (!element) return;
 
-        if (!profile.email) {
-          throw new Error("Google account email is unavailable.");
-        }
+    const update = () =>
+      setScale({
+        x: element.clientWidth / GOOGLE_BUTTON_WIDTH,
+        y: element.clientHeight / GOOGLE_BUTTON_HEIGHT,
+      });
 
-        onSuccess({
-          name: profile.name ?? profile.email,
-          email: profile.email,
-          picture: profile.picture,
-        });
-      } catch {
-        onError("Google sign-in failed. Please try again.");
-      }
-    },
-    onError: () => {
-      onError("Google sign-in was cancelled or failed.");
-    },
-    onNonOAuthError: () => {
-      onError("Google sign-in is unavailable right now.");
-    },
-  });
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <button
-      type="button"
-      className="btn btn-google w-100 text-nav"
-      onClick={() => {
-        if (disabled) return;
-        onStart?.();
-        login();
-      }}
-      disabled={disabled}
-      aria-label="Continue with Google"
+    <div
+      ref={wrapperRef}
+      className="google-btn"
+      style={disabled ? { pointerEvents: "none", opacity: 0.6 } : undefined}
     >
-      <GoogleIcon />
-      Continue with Google
-    </button>
+      <div className="btn btn-google w-100 text-nav" aria-hidden="true">
+        <GoogleIcon />
+        Continue with Google
+      </div>
+      <div
+        className="google-btn__overlay"
+        style={{ transform: `scale(${scale.x}, ${scale.y})` }}
+      >
+        <GoogleLogin
+          text="continue_with"
+          size="large"
+          width={String(GOOGLE_BUTTON_WIDTH)}
+          onSuccess={(response) => {
+            if (response.credential) {
+              onCredential(response.credential);
+            } else {
+              onError("Google sign-in failed. Please try again.");
+            }
+          }}
+          onError={() => onError("Google sign-in was cancelled or failed.")}
+        />
+      </div>
+    </div>
   );
 };
 

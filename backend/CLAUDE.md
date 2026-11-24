@@ -158,6 +158,8 @@ These hold across the whole API. Breaking one is a defect, not a design choice.
   `[Authorize(Policy = AuthSecurityExtensions.VerifiedEmailPolicy)]`. Plain
   `[Authorize]` is for account endpoints such as `/me`; unverified accounts get
   cookies, so a bare `[Authorize]` on user data is a defect
-- Google sign-in must never sign in to, or link with, an existing account
-  whose email is unverified. Someone could pre-register a victim's address
-  with their own password and wait
+- Google sign-in may only take over an existing account whose email is
+  unverified by *claiming* it: keep the row, but clear the password, revoke
+  its sessions and burn its unused emailed tokens. Never sign in to or link
+  such an account with its sign-up password still valid. Someone could
+  pre-register a victim's address with their own password and wait

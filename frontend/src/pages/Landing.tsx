@@ -1,13 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import BrandName, {
-  AUTH_GOOGLE_STUB_KEY,
-  AUTH_USER_STORAGE_KEY,
-  BRAND_NAME,
-} from "../components/BrandName";
+import BrandName, { AUTH_USER_STORAGE_KEY, BRAND_NAME } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import { ApiError, loginUser, registerUser, type LoginChallenge } from "../api/auth";
+import { ApiError, googleSignIn, loginUser, registerUser, type LoginChallenge } from "../api/auth";
 import LoginCodeStep from "../components/LoginCodeStep";
 import "./Landing.css";
 
@@ -219,25 +215,27 @@ const Landing = () => {
 
   /** Caches display profile and navigates to the dashboard. JWT lives in HttpOnly cookie. */
   const completeSignIn = (
-    user: { name: string; email: string; picture?: string; provider: "email" | "google" },
+    user: { name: string; email: string; provider: "email" | "google" },
   ) => {
     localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
-
-    if (user.provider === "google") {
-      localStorage.setItem(AUTH_GOOGLE_STUB_KEY, "true");
-    } else {
-      localStorage.removeItem(AUTH_GOOGLE_STUB_KEY);
-    }
-
     navigate("/home");
   };
 
-  /** Handles a successful Google profile fetch from the Google sign-in button. */
-  const handleGoogleSignIn = (user: { name: string; email: string; picture?: string }) => {
+  /** Sends Google's ID token to the API, which verifies it and sets the HttpOnly session cookies. */
+  const handleGoogleCredential = async (idToken: string) => {
     setError("");
     setSuccessMessage("");
     clearFieldErrors();
-    completeSignIn({ ...user, provider: "google" });
+    setGoogleLoading(true);
+
+    try {
+      const result = await googleSignIn(idToken);
+      completeSignIn({ name: result.name, email: result.email, provider: "google" });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Google sign-in failed. Please try again.");
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   /**
@@ -611,16 +609,7 @@ const Landing = () => {
 
                   <GoogleSignInButton
                     disabled={isAuthBusy}
-                    onStart={() => {
-                      setError("");
-                      setSuccessMessage("");
-                      clearFieldErrors();
-                      setGoogleLoading(true);
-                    }}
-                    onSuccess={(user) => {
-                      setGoogleLoading(false);
-                      handleGoogleSignIn(user);
-                    }}
+                    onCredential={(idToken) => void handleGoogleCredential(idToken)}
                     onError={(message) => {
                       setGoogleLoading(false);
                       setError(message);

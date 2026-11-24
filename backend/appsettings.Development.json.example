@@ -36,6 +36,9 @@
       "CheckCertificateRevocation": true
     }
   },
+  "Google": {
+    "ClientId": "SAME_VALUE_AS_VITE_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+  },
   "Plaid": {
     "ClientId": "PLAID_CLIENT_ID_FROM_DASHBOARD",
     "Secret": "PLAID_SANDBOX_SECRET_FROM_DASHBOARD",

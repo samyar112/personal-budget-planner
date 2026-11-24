@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { fetchCurrentUser } from "./api/auth";
-import { AUTH_GOOGLE_STUB_KEY, clearAuthSession } from "./components/BrandName";
+import { clearAuthSession } from "./components/BrandName";
 import Landing from "./pages/Landing";
 import Home from "./pages/Home";
 import VerifyEmail from "./pages/VerifyEmail";
@@ -16,9 +16,9 @@ import Insights from "./pages/Insights";
 import AppLayout from "./components/AppLayout";
 
 /**
- * Allows /home only when /api/auth/me succeeds (HttpOnly cookie),
- * or when the temporary Google stub flag is set. With `adminOnly`, also requires the Admin role
- * and never honours the stub. This only decides what to show: the API enforces admin access itself.
+ * Allows /home only when /api/auth/me succeeds (HttpOnly cookie). No client-side flag can grant
+ * access. With `adminOnly`, also requires the Admin role. This only decides what to show: the API
+ * enforces access itself.
  */
 const RequireAuth = ({ children, adminOnly = false }: { children: ReactNode; adminOnly?: boolean }) => {
   const [status, setStatus] = useState<"loading" | "ok" | "deny" | "notAdmin">("loading");
@@ -31,13 +31,6 @@ const RequireAuth = ({ children, adminOnly = false }: { children: ReactNode; adm
         const me = await fetchCurrentUser();
         if (!cancelled) setStatus(adminOnly && me.role !== "Admin" ? "notAdmin" : "ok");
       } catch {
-        // Dev-only: lets the client-side Google stub reach /home. It is a localStorage flag anyone can
-        // set, so it must never grant access in a production build (Vite strips this branch there).
-        if (!adminOnly && import.meta.env.DEV && localStorage.getItem(AUTH_GOOGLE_STUB_KEY) === "true") {
-          if (!cancelled) setStatus("ok");
-          return;
-        }
-
         clearAuthSession();
         if (!cancelled) setStatus("deny");
       }
