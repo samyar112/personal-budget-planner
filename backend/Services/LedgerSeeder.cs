@@ -5,8 +5,8 @@ using Microsoft.EntityFrameworkCore;
 namespace backend.Services;
 
 /// <summary>
-/// Development-only sample data so the dashboard has a ledger before Plaid exists. Fills a user's
-/// ledger only when it is empty, so running it twice, or over real rows, changes nothing.
+/// Sample ledger rows for tests. Nothing runs it at boot: the app's ledger holds only real data. Fills
+/// a user's ledger only when it is empty, so running it twice, or over real rows, changes nothing.
 /// </summary>
 public sealed class LedgerSeeder(AppDbContext db)
 {
@@ -74,25 +74,4 @@ public sealed class LedgerSeeder(AppDbContext db)
             Date = date,
             Category = category,
         });
-}
-
-/// <summary>Runs the ledger seeder once at boot. A failure is logged, not fatal.</summary>
-public sealed class LedgerSeedHostedService(
-    IServiceScopeFactory scopeFactory,
-    ILogger<LedgerSeedHostedService> logger) : IHostedService
-{
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var scope = scopeFactory.CreateScope();
-            await scope.ServiceProvider.GetRequiredService<LedgerSeeder>().SeedVerifiedUsersAsync(cancellationToken);
-        }
-        catch (Exception exception)
-        {
-            logger.LogError(exception, "Ledger seeding failed.");
-        }
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
