@@ -81,15 +81,8 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
   const handleSync = async (id: string) => {
     setSync((current) => ({ ...current, [id]: { busy: true } }));
     try {
-      const result = await syncPlaidItem(id);
-      const changed = result.added + result.modified + result.removed;
-      setSync((current) => ({
-        ...current,
-        [id]: {
-          busy: false,
-          message: changed === 0 ? "Up to date." : `${result.added} new, ${result.modified} updated, ${result.removed} removed.`,
-        },
-      }));
+      await syncPlaidItem(id);
+      setSync((current) => ({ ...current, [id]: { busy: false, message: "Up to date." } }));
       setAttempt((value) => value + 1);
       onChanged();
     } catch (err) {
@@ -232,15 +225,17 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                         </ul>
                       )}
                       {cards.length > 0 && (
-                        <div className="row g-2 mt-1">
+                        <h6 className="bank-panel__heading mt-3 mb-2">{cards.length === 1 ? "Credit Card" : "Credit Cards"}</h6>
+                      )}
+                      {cards.length > 0 && (
+                        <div className="row g-2">
                           {cards.map((card, index) => (
                             <div className="col-sm-6 col-xl-4" key={card.id}>
                               <div className={`payment-card payment-card--compact ${CARD_STYLES[index % CARD_STYLES.length]}`}>
                                 <div className="payment-card__top">
-                                  <span className="payment-card__kind">{kindLabel(card)}</span>
+                                  <div className="payment-card__name">{card.name.replace(/^Plaid /, "")}</div>
                                   <span className="card-chip" aria-hidden="true" />
                                 </div>
-                                <div className="payment-card__name">{card.name.replace(/^Plaid /, "")}</div>
                                 <div className="payment-card__num">•••• {card.mask ?? "····"}</div>
                                 {card.currentBalance !== null && (
                                   <div className="payment-card__balance">

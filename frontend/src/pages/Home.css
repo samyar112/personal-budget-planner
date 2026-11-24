@@ -368,14 +368,6 @@
   align-items: center;
 }
 
-.payment-card__kind {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
-}
-
 .payment-card--compact .payment-card__name {
   margin-top: 0;
 }
@@ -444,6 +436,10 @@
 .account-row__meta {
   font-size: 0.75rem;
   color: var(--muted-foreground);
+}
+
+.bank-panel__heading {
+  font-weight: 600;
 }
 
 /* Bottom right of an expanded bank: the destructive action, away from Sync now. */
