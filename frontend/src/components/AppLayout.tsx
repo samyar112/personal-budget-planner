@@ -56,7 +56,6 @@ const AppLayout = () => {
   const [resendStatus, setResendStatus] = useState("");
 
   useEffect(() => {
-    // The Google stub session has no API user; it simply gets no admin link and no banner.
     fetchCurrentUser()
       .then((me) => {
         setIsAdmin(me.role === "Admin");

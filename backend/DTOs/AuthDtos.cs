@@ -61,3 +61,6 @@ public sealed record LoginChallengeResponse(
 public sealed record VerifyLoginCodeRequest(Guid ChallengeId, string Code);
 
 public sealed record ResendLoginCodeRequest(Guid ChallengeId);
+
+/// <summary>The ID token (a signed JWT) Google handed the browser. Verified server-side; never logged.</summary>
+public sealed record GoogleLoginRequest(string IdToken);

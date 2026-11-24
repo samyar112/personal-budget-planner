@@ -27,10 +27,14 @@ public sealed class AuthController(
     PasswordResetService passwordReset,
     LoginCodeService loginCode,
     IAccountEmailQueue accountEmails,
+    IGoogleTokenVerifier googleVerifier,
     IHostEnvironment environment) : ControllerBase
 {
     private const string InvalidCredentialsMessage = "Invalid email or password.";
     private const string DeactivatedMessage = "This account has been deactivated. Contact an administrator.";
+
+    private const string GoogleFailedMessage = "Google sign-in failed. Please try again.";
+    private const int MaxGoogleIdTokenLength = 4096;
 
     private static readonly User DummyUser = new() { Email = string.Empty, Name = string.Empty };
     private static string? _dummyHash;
@@ -228,6 +232,130 @@ public sealed class AuthController(
                 new { message = "Please wait before requesting another code." }),
             _ => Unauthorized(new { message = "This login has expired. Log in again." }),
         };
+    }
+
+    /// <summary>
+    /// Signs in with a Google ID token. The token is verified here (signature, issuer, audience,
+    /// expiry, verified email), never trusted from the browser. Google has already authenticated
+    /// the person, so no emailed code follows. A new address creates a verified account; an
+    /// existing verified account with the same email is linked. An existing UNVERIFIED account is
+    /// claimed: Google has just proven the caller owns the address, so the row is kept (one user,
+    /// one record) but whatever the sign-up put on it is thrown away. Someone could have
+    /// pre-registered a victim's address with a password of their own and be waiting for exactly
+    /// this, so the password, live sessions and unused emailed tokens must not survive the claim.
+    /// </summary>
+    [EnableRateLimiting(AuthSecurityExtensions.LoginRateLimitPolicy)]
+    [HttpPost("google")]
+    [ProducesResponseType<LoginResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult> GoogleSignIn(
+        [FromBody] GoogleLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        // A real ID token is ~1-2 KB; the cap keeps junk from reaching the verifier.
+        if (string.IsNullOrWhiteSpace(request.IdToken) || request.IdToken.Length > MaxGoogleIdTokenLength)
+        {
+            ModelState.AddModelError(nameof(request.IdToken), "A Google ID token is required.");
+            return ValidationProblem(ModelState);
+        }
+
+        var identity = await googleVerifier.VerifyAsync(request.IdToken, cancellationToken);
+        if (identity is null)
+        {
+            return Unauthorized(new { message = GoogleFailedMessage });
+        }
+
+        // The subject is Google's stable account id; the email can change, so it is looked up first.
+        var user = await db.Users.FirstOrDefaultAsync(
+            candidate => candidate.GoogleSubject == identity.Subject,
+            cancellationToken);
+
+        if (user is null)
+        {
+            user = await db.Users.FirstOrDefaultAsync(
+                candidate => candidate.Email == identity.Email,
+                cancellationToken);
+
+            if (user is null)
+            {
+                user = new User
+                {
+                    Email = identity.Email,
+                    Name = identity.Name,
+                    GoogleSubject = identity.Subject,
+                    // Google verified the address, so the user owes no second email.
+                    EmailVerifiedAt = DateTime.UtcNow,
+                };
+                db.Users.Add(user);
+            }
+            else if (user.GoogleSubject is not null)
+            {
+                // Same email, different Google account: never move an account to another identity.
+                return Unauthorized(new { message = GoogleFailedMessage });
+            }
+            else
+            {
+                if (user.EmailVerifiedAt is null)
+                {
+                    await ClaimUnverifiedAccountAsync(user, cancellationToken);
+                }
+
+                user.GoogleSubject = identity.Subject;
+            }
+
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateException)
+            {
+                // A concurrent request created the same email first; the caller can simply retry.
+                return Conflict(new { message = GoogleFailedMessage });
+            }
+        }
+
+        return await SignInAsync(user, cancellationToken);
+    }
+
+    /// <summary>
+    /// Strips an unverified account of everything its sign-up created: the password, every live
+    /// session and every unused verification or reset link. Google then owns the row.
+    /// </summary>
+    private async Task ClaimUnverifiedAccountAsync(User user, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+
+        user.PasswordHash = null;
+        user.EmailVerifiedAt = now;
+        AuthSecurityExtensions.ClearLoginFailures(user);
+
+        var sessions = await db.RefreshTokens
+            .Where(token => token.UserId == user.Id && token.RevokedAt == null)
+            .ToListAsync(cancellationToken);
+        foreach (var token in sessions)
+        {
+            token.RevokedAt = now;
+            token.GraceExpiresAt = null;
+        }
+
+        var verifications = await db.EmailVerificationTokens
+            .Where(token => token.UserId == user.Id && token.UsedAt == null)
+            .ToListAsync(cancellationToken);
+        foreach (var token in verifications)
+        {
+            token.UsedAt = now;
+        }
+
+        var resets = await db.PasswordResetTokens
+            .Where(token => token.UserId == user.Id && token.UsedAt == null)
+            .ToListAsync(cancellationToken);
+        foreach (var token in resets)
+        {
+            token.UsedAt = now;
+        }
     }
 
     private async Task<ActionResult> SignInAsync(User user, CancellationToken cancellationToken)

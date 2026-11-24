@@ -59,6 +59,8 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
                 ["AuthSecurity:ResendWindowSeconds"] = "60",
                 // No cooldown by default so resend tests need not wait; cooldown tests override it.
                 ["AuthSecurity:LoginCodeResendCooldownSeconds"] = "0",
+                // Google verification is faked below; this only satisfies startup validation.
+                ["Google:ClientId"] = "test-google-client-id.apps.googleusercontent.com",
                 // Plaid itself is faked below; these only satisfy startup validation.
                 ["Plaid:ClientId"] = "test-client-id",
                 ["Plaid:Secret"] = "test-secret",
@@ -100,6 +102,11 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<FakePlaidClient>();
             services.AddSingleton<IPlaidClient>(provider => provider.GetRequiredService<FakePlaidClient>());
 
+            // No test may reach Google; each fake token maps to an identity a test registers.
+            services.RemoveAll<IGoogleTokenVerifier>();
+            services.AddSingleton<FakeGoogleTokenVerifier>();
+            services.AddSingleton<IGoogleTokenVerifier>(provider => provider.GetRequiredService<FakeGoogleTokenVerifier>());
+
             // Stand-in for a ledger endpoint, which does not exist yet.
             services.AddControllers().AddApplicationPart(typeof(VerifiedOnlyProbeController).Assembly);
         });
@@ -107,7 +114,34 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
 
     public CapturingEmailSender Emails => Services.GetRequiredService<CapturingEmailSender>();
 
+    public FakeGoogleTokenVerifier Google => Services.GetRequiredService<FakeGoogleTokenVerifier>();
+
     public FakePlaidClient Plaid => Services.GetRequiredService<FakePlaidClient>();
+}
+
+/// <summary>
+/// Stands in for Google's token check. A token a test registered verifies to its identity; any
+/// other token is untrusted, the way a forged, expired or wrong-audience token is.
+/// </summary>
+public sealed class FakeGoogleTokenVerifier : IGoogleTokenVerifier
+{
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, GoogleIdentity> _tokens = new();
+
+    public System.Collections.Concurrent.ConcurrentQueue<string> Verified { get; } = new();
+
+    /// <summary>Registers an ID token that verifies to <paramref name="identity"/>.</summary>
+    public string AddToken(GoogleIdentity identity)
+    {
+        var token = $"google-id-token-{Guid.NewGuid():N}";
+        _tokens[token] = identity;
+        return token;
+    }
+
+    public Task<GoogleIdentity?> VerifyAsync(string idToken, CancellationToken cancellationToken)
+    {
+        Verified.Enqueue(idToken);
+        return Task.FromResult(_tokens.TryGetValue(idToken, out var identity) ? identity : null);
+    }
 }
 
 /// <summary>

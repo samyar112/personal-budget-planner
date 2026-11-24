@@ -238,6 +238,35 @@ export async function loginUser(payload: LoginPayload): Promise<LoginOutcome> {
   throwApiError(response, await parseErrorBody(response));
 }
 
+/**
+ * Exchanges the Google ID token for a session. The backend verifies the token and sets the
+ * HttpOnly cookies; no emailed code follows because Google already authenticated the person.
+ */
+export async function googleSignIn(idToken: string): Promise<LoginResult> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ idToken }),
+  });
+
+  if (response.ok) {
+    return (await response.json()) as LoginResult;
+  }
+
+  // Google errors are shown as a banner, never as a field error under the email input.
+  const body = await parseErrorBody(response);
+  const message =
+    typeof body === "object" && body !== null && "message" in body && typeof (body as { message: unknown }).message === "string"
+      ? (body as { message: string }).message
+      : response.status === 429
+        ? "Too many attempts. Please try again later."
+        : "Google sign-in failed. Please try again.";
+  throw new ApiError(message, response.status);
+}
+
 /** Submits the emailed code. On success the HttpOnly cookies are set. */
 export async function verifyLoginCode(challengeId: string, code: string): Promise<LoginResult> {
   const response = await fetch(`${API_BASE_URL}/api/auth/login/verify-code`, {
