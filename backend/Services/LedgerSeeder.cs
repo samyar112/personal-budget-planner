@@ -31,16 +31,16 @@ public sealed class LedgerSeeder(AppDbContext db)
         for (var month = 0; month < 3; month++)
         {
             var start = first.AddMonths(month);
-            Add(rows, userId, account, start.AddDays(0), "Employer payroll", 3200m, "Income");
-            Add(rows, userId, account, start.AddDays(1), "Rent", -1250m, "Housing");
-            Add(rows, userId, account, start.AddDays(4), "Electric utility", -86.40m - month * 3, "Utilities");
-            Add(rows, userId, account, start.AddDays(6), "Streaming subscription", -15.99m, "Subscriptions");
-            Add(rows, userId, account, start.AddDays(8), "Grocery store", -112.35m, "Groceries");
-            Add(rows, userId, account, start.AddDays(11), "Coffee shop", -5.40m, "Dining");
-            Add(rows, userId, account, start.AddDays(14), "Grocery store", -94.10m - month * 4, "Groceries");
-            Add(rows, userId, account, start.AddDays(17), "Gas station", -48.00m, "Transport");
-            Add(rows, userId, account, start.AddDays(20), "Restaurant", -42.75m, "Dining");
-            Add(rows, userId, account, start.AddDays(24), "Savings transfer", -300m, "Savings");
+            Add(rows, userId, account, start.AddDays(0), "Employer payroll", 3200m, "INCOME");
+            Add(rows, userId, account, start.AddDays(1), "Rent", -1250m, "RENT_AND_UTILITIES");
+            Add(rows, userId, account, start.AddDays(4), "Electric utility", -86.40m - month * 3, "RENT_AND_UTILITIES");
+            Add(rows, userId, account, start.AddDays(6), "Streaming subscription", -15.99m, "ENTERTAINMENT");
+            Add(rows, userId, account, start.AddDays(8), "Grocery store", -112.35m, "FOOD_AND_DRINK");
+            Add(rows, userId, account, start.AddDays(11), "Coffee shop", -5.40m, "FOOD_AND_DRINK");
+            Add(rows, userId, account, start.AddDays(14), "Grocery store", -94.10m - month * 4, "FOOD_AND_DRINK");
+            Add(rows, userId, account, start.AddDays(17), "Gas station", -48.00m, "TRANSPORTATION");
+            Add(rows, userId, account, start.AddDays(20), "Restaurant", -42.75m, "FOOD_AND_DRINK");
+            Add(rows, userId, account, start.AddDays(24), "Savings transfer", -300m, "TRANSFER_OUT");
         }
 
         db.Transactions.AddRange(rows.Where(row => row.Date <= today));

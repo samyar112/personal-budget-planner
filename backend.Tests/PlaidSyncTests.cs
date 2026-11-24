@@ -25,6 +25,7 @@ namespace backend.Tests;
  * 11. A transaction for an account the user did not share is skipped.
  * 12. When another sync of the same item commits first, this one returns 409 and the winner's cursor stands.
  * 13. Sync refreshes each account's mask and type from Plaid, for banks linked before they were stored.
+ * 14. Sync stores Plaid's category and subcategory, falls back to keywords then OTHER, and a modified row is recategorised.
  */
 public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
 {
@@ -333,9 +334,39 @@ public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
         return (userId, client, new Link(itemId, accountId, exchange.AccessToken, exchange.ItemId, checkingId));
     }
 
+    [Fact]
+    public async Task Sync_StoresCategory_FromPlaid_ThenKeywords_ThenOther_AndRecategorisesOnModify()
+    {
+        var (userId, client, link) = await LinkedUserAsync(_factory);
+        _factory.Plaid.EnqueueSync(link.AccessToken, Page("c1", added:
+        [
+            Txn("t-plaid", link.PlaidAccountId, 4.50m, "2026-11-01", "COFFEE", primary: "FOOD_AND_DRINK", detailed: "FOOD_AND_DRINK_COFFEE"),
+            Txn("t-keyword", link.PlaidAccountId, 40m, "2026-11-02", "SHELL OIL 5731"),
+            Txn("t-other", link.PlaidAccountId, 3m, "2026-11-03", "QWERTY ZZZ"),
+        ]));
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/api/plaid/items/{link.ItemId}/sync", null)).StatusCode);
+
+        _factory.Plaid.EnqueueSync(link.AccessToken, Page("c2", modified:
+        [
+            Txn("t-other", link.PlaidAccountId, 3m, "2026-11-03", "QWERTY ZZZ", primary: "GENERAL_MERCHANDISE", detailed: "GENERAL_MERCHANDISE_OTHER_GENERAL_MERCHANDISE"),
+        ]));
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsync($"/api/plaid/items/{link.ItemId}/sync", null)).StatusCode);
+
+        await WithDbAsync(_factory, async db =>
+        {
+            var rows = await db.Transactions.Where(row => row.UserId == userId).ToDictionaryAsync(row => row.ExternalId!);
+            Assert.Equal(("FOOD_AND_DRINK", "FOOD_AND_DRINK_COFFEE"), (rows["t-plaid"].Category, rows["t-plaid"].Subcategory));
+            Assert.Equal(("TRANSPORTATION", "TRANSPORTATION_GAS"), (rows["t-keyword"].Category, rows["t-keyword"].Subcategory));
+            Assert.Equal("GENERAL_MERCHANDISE", rows["t-other"].Category);
+            return 0;
+        });
+    }
+
     private static PlaidTransaction Txn(
-        string id, string accountId, decimal plaidAmount, string date, string name, bool pending = false, string? merchant = null) =>
-        new(id, accountId, plaidAmount, DateOnly.Parse(date), name, merchant, pending);
+        string id, string accountId, decimal plaidAmount, string date, string name, bool pending = false, string? merchant = null,
+        string? primary = null, string? detailed = null) =>
+        new(id, accountId, plaidAmount, DateOnly.Parse(date), name, merchant, pending, primary, detailed);
 
     private static PlaidSyncPage Page(
         string nextCursor,

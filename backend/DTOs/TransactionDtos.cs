@@ -11,7 +11,8 @@ public sealed record TransactionResponse(
     DateOnly Date,
     string Description,
     decimal Amount,
-    string? Category);
+    string? Category,
+    string? Subcategory = null);
 
 public sealed record TransactionListResponse(
     IReadOnlyList<TransactionResponse> Items,

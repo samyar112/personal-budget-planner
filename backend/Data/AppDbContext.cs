@@ -134,6 +134,7 @@ public class AppDbContext : DbContext
             entity.Property(transaction => transaction.Source).HasConversion<string>().HasMaxLength(20);
             entity.Property(transaction => transaction.Description).HasMaxLength(500);
             entity.Property(transaction => transaction.Category).HasMaxLength(100);
+            entity.Property(transaction => transaction.Subcategory).HasMaxLength(100);
             entity.Property(transaction => transaction.ExternalId).HasMaxLength(200);
             entity.Property(transaction => transaction.Amount).HasPrecision(18, 2);
             // The list query is always "this user, newest first", optionally within a date range.
