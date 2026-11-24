@@ -25,7 +25,13 @@ public sealed record PlaidExchangeResult(string AccessToken, string ItemId);
 
 public sealed record PlaidItemDetails(string? InstitutionId, string? InstitutionName, IReadOnlyList<PlaidAccount> Accounts);
 
-public sealed record PlaidAccount(string AccountId, string Name, string? Mask = null, string? Type = null);
+public sealed record PlaidAccount(
+    string AccountId,
+    string Name,
+    string? Mask = null,
+    string? Type = null,
+    string? Subtype = null,
+    decimal? CurrentBalance = null);
 
 /// <summary>
 /// A Plaid transaction as Plaid reports it. <see cref="Amount"/> is Plaid's sign: positive is money out.
@@ -123,7 +129,8 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
             institutionId,
             institutionName,
             accounts.Accounts
-                .Select(account => new PlaidAccount(account.AccountId, account.Name, account.Mask, account.Type))
+                .Select(account => new PlaidAccount(
+                    account.AccountId, account.Name, account.Mask, account.Type, account.Subtype, account.Balances?.Current))
                 .ToList());
     }
 
@@ -205,7 +212,12 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
         [property: JsonPropertyName("account_id")] string AccountId,
         [property: JsonPropertyName("name")] string Name,
         [property: JsonPropertyName("mask")] string? Mask,
-        [property: JsonPropertyName("type")] string? Type);
+        [property: JsonPropertyName("type")] string? Type,
+        [property: JsonPropertyName("subtype")] string? Subtype,
+        [property: JsonPropertyName("balances")] BalancesEntry? Balances);
+
+    private sealed record BalancesEntry(
+        [property: JsonPropertyName("current")] decimal? Current);
 
     private sealed record TransactionsSyncResponse(
         [property: JsonPropertyName("added")] IReadOnlyList<TransactionEntry> Added,

@@ -28,8 +28,15 @@ namespace backend.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("BalanceAsOf")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("CurrentBalance")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
 
                     b.Property<string>("Institution")
                         .HasMaxLength(200)
@@ -50,6 +57,10 @@ namespace backend.Migrations
 
                     b.Property<Guid?>("PlaidItemId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Subtype")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<string>("Type")
                         .HasMaxLength(20)

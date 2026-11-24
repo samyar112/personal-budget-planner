@@ -27,5 +27,17 @@ public class Account
     /// <summary>Plaid account type: depository, credit, loan, investment or other. Null for non-Plaid accounts.</summary>
     public string? Type { get; set; }
 
+    /// <summary>Plaid account subtype, for example checking, savings or credit card. Null until the next sync.</summary>
+    public string? Subtype { get; set; }
+
+    /// <summary>
+    /// Balance as of <see cref="BalanceAsOf"/>, from the last link or sync. For credit accounts it is the
+    /// amount owed. Financial data: must stay out of any AI payload.
+    /// </summary>
+    public decimal? CurrentBalance { get; set; }
+
+    /// <summary>When <see cref="CurrentBalance"/> was read from Plaid. Null when Plaid reported no balance.</summary>
+    public DateTime? BalanceAsOf { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

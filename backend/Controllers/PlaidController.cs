@@ -126,6 +126,9 @@ public sealed class PlaidController(
             account.PlaidItemId = item.Id;
             account.Mask = plaidAccount.Mask;
             account.Type = plaidAccount.Type;
+            account.Subtype = plaidAccount.Subtype;
+            account.CurrentBalance = plaidAccount.CurrentBalance;
+            account.BalanceAsOf = plaidAccount.CurrentBalance is null ? null : DateTime.UtcNow;
             linked.Add(account);
         }
 
@@ -211,7 +214,7 @@ public sealed class PlaidController(
     }
 
     private static LinkedAccountResponse ToResponse(Account account) =>
-        new(account.Id, account.Name, account.Mask, account.Type);
+        new(account.Id, account.Name, account.Mask, account.Type, account.Subtype, account.CurrentBalance, account.BalanceAsOf);
 
     private Guid? CallerId()
     {

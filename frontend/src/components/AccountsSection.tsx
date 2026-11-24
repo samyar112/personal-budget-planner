@@ -1,31 +1,45 @@
 import { useEffect, useState } from "react";
 import { ApiError } from "../api/auth";
-import { fetchPlaidItems, syncPlaidItem, type PlaidItem } from "../api/plaid";
+import { fetchPlaidItems, syncPlaidItem, type LinkedAccount, type PlaidItem } from "../api/plaid";
 import ConnectBankButton from "./ConnectBankButton";
 
 const CARD_STYLES = ["payment-card--navy", "payment-card--orange", "payment-card--green"] as const;
-const ACCOUNTS_SHOWN = 3;
+const TYPE_ORDER = ["depository", "credit", "loan", "investment"];
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 
 /** "just now", "5 min ago", "3 h ago", "2 days ago". Coarse on purpose: it is a freshness hint. */
-function syncedAgo(iso: string | null): string {
-  if (!iso) return "Never synced";
+function ago(iso: string): string {
   const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (minutes < 1) return "Synced just now";
-  if (minutes < 60) return `Synced ${minutes} min ago`;
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Synced ${hours} h ago`;
+  if (hours < 24) return `${hours} h ago`;
   const days = Math.floor(hours / 24);
-  return `Synced ${days} ${days === 1 ? "day" : "days"} ago`;
+  return `${days} ${days === 1 ? "day" : "days"} ago`;
 }
 
-/** The bank's non-card accounts as one line; cards are drawn separately inside the bank panel. */
-function accountSummary(item: PlaidItem): string {
-  const names = item.accounts
-    .filter((account) => account.type !== "credit")
-    .map((account) => account.name.replace(/^Plaid /, ""));
-  const shown = names.slice(0, ACCOUNTS_SHOWN).join(" · ");
-  const more = names.length - ACCOUNTS_SHOWN;
-  return more > 0 ? `${shown} · +${more} more` : shown;
+function syncedAgo(iso: string | null): string {
+  return iso ? `Synced ${ago(iso)}` : "Never synced";
+}
+
+/** The tile's small label: Plaid's subtype when known ("Credit card"), else a plain word for the type. */
+function kindLabel(account: LinkedAccount): string {
+  const raw = account.subtype ?? (account.type === "depository" ? "account" : (account.type ?? "account"));
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+/** Credit and loan balances are what you owe, so the tile says so instead of reading as money you have. */
+function balanceLabel(account: LinkedAccount): string {
+  return account.type === "credit" || account.type === "loan" ? "Balance owed" : "Balance";
+}
+
+/** Depository first, then cards, loans and the rest; by name inside a type so the order never jumps. */
+function sortedAccounts(item: PlaidItem): LinkedAccount[] {
+  const rank = (account: LinkedAccount) => {
+    const index = TYPE_ORDER.indexOf(account.type ?? "");
+    return index === -1 ? TYPE_ORDER.length : index;
+  };
+  return [...item.accounts].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
 }
 
 type SyncState = { busy: boolean; message?: string; error?: boolean };
@@ -113,15 +127,25 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
         {items.status === "ready" && (
           <>
             {linked.length === 0 && (
-              <p className="text-body-secondary small">
-                No banks connected yet. Connect one to see its accounts, cards and transactions here.
-              </p>
+              <div className="text-center py-4 px-2">
+                <h5 className="mb-2">Connect your first bank</h5>
+                <p className="text-body-secondary mx-auto mb-3" style={{ maxWidth: "34rem" }}>
+                  Link a bank or credit card to bring your accounts and transactions into one ledger.
+                  Access is read-only, so VaultBudget can never move money, and identifying details are
+                  stripped before anything reaches the AI.
+                </p>
+                <div className="d-flex flex-wrap justify-content-center gap-2">
+                  <ConnectBankButton label="Connect a bank" onLinked={onChanged} />
+                </div>
+              </div>
             )}
 
             {linked.map((item) => {
               const state = sync[item.id];
-              const cards = item.accounts.filter((account) => account.type === "credit");
-              const others = accountSummary(item);
+              const accounts = sortedAccounts(item);
+              // Only credit cards are drawn as cards. Everything else is a plain row with its balance.
+              const rows = accounts.filter((account) => account.type !== "credit");
+              const cards = accounts.filter((account) => account.type === "credit");
               const isOpen = expanded[item.id] ?? false;
               const panelId = `bank-panel-${item.id}`;
               return (
@@ -137,8 +161,7 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
                       <span className="bank-panel__chevron" aria-hidden="true">{isOpen ? "▾" : "▸"}</span>
                       <span className="bank-row__name">🏦 {item.institution ?? "Linked bank"}</span>
                       <span className="bank-row__synced">
-                        {cards.length} {cards.length === 1 ? "card" : "cards"} · {item.accounts.length - cards.length}{" "}
-                        {item.accounts.length - cards.length === 1 ? "account" : "accounts"} · {syncedAgo(item.lastSyncedAt)}
+                        {accounts.length} {accounts.length === 1 ? "account" : "accounts"} · {syncedAgo(item.lastSyncedAt)}
                       </span>
                     </button>
                     <button
@@ -159,19 +182,54 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
 
                   {isOpen && (
                     <div id={panelId}>
-                      {others && <div className="bank-row__accounts mt-2">{others}</div>}
+                      {rows.length > 0 && (
+                        <ul className="account-list mt-2">
+                          {rows.map((account) => {
+                            const kind = kindLabel(account);
+                            const name = account.name.replace(/^Plaid /, "");
+                            const detail = [name.toLowerCase() === kind.toLowerCase() ? null : kind, `•••• ${account.mask ?? "····"}`]
+                              .filter(Boolean)
+                              .join(" · ");
+                            return (
+                              <li className="account-row" key={account.id}>
+                                <div className="account-row__main">
+                                  <span className="account-row__name">{name}</span>
+                                  <span className="account-row__meta">{detail}</span>
+                                </div>
+                                {account.currentBalance !== null && (
+                                  <div className="account-row__balance">
+                                    <span className="account-row__amount">{money.format(account.currentBalance)}</span>
+                                    <span className="account-row__meta">
+                                      {balanceLabel(account)}
+                                      {account.balanceAsOf && ` · as of ${ago(account.balanceAsOf)}`}
+                                    </span>
+                                  </div>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
                       {cards.length > 0 && (
                         <div className="row g-2 mt-1">
                           {cards.map((card, index) => (
                             <div className="col-sm-6 col-xl-4" key={card.id}>
                               <div className={`payment-card payment-card--compact ${CARD_STYLES[index % CARD_STYLES.length]}`}>
-                                <div className="payment-card__left">
-                                  <div className="payment-card__name">{card.name.replace(/^Plaid /, "")}</div>
-                                  <div className="payment-card__num">**** **** **** {card.mask ?? "····"}</div>
+                                <div className="payment-card__top">
+                                  <span className="payment-card__kind">{kindLabel(card)}</span>
+                                  <span className="card-chip" aria-hidden="true" />
                                 </div>
-                                <div className="payment-card__right">
-                                  <div className="card-chip"></div>
-                                </div>
+                                <div className="payment-card__name">{card.name.replace(/^Plaid /, "")}</div>
+                                <div className="payment-card__num">•••• {card.mask ?? "····"}</div>
+                                {card.currentBalance !== null && (
+                                  <div className="payment-card__balance">
+                                    <span className="payment-card__balance-label">{balanceLabel(card)}</span>
+                                    <span className="payment-card__balance-amount">{money.format(card.currentBalance)}</span>
+                                    {card.balanceAsOf && (
+                                      <span className="payment-card__balance-asof">as of {ago(card.balanceAsOf)}</span>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             </div>
                           ))}
@@ -183,13 +241,15 @@ const AccountsSection = ({ reloadKey, onChanged }: { reloadKey: number; onChange
               );
             })}
 
-            <div className="d-flex flex-wrap justify-content-center gap-2 mt-3">
-              <ConnectBankButton
-                label="+ Connect another bank"
-                className="btn btn-success btn-sm text-nav"
-                onLinked={onChanged}
-              />
-            </div>
+            {linked.length > 0 && (
+              <div className="d-flex flex-wrap justify-content-center gap-2 mt-3">
+                <ConnectBankButton
+                  label="+ Connect another bank"
+                  className="btn btn-success btn-sm text-nav"
+                  onLinked={onChanged}
+                />
+              </div>
+            )}
           </>
         )}
       </div>

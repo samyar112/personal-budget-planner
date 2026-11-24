@@ -7,6 +7,12 @@ export type LinkedAccount = {
   mask: string | null;
   /** Plaid account type: depository, credit, loan, investment or other. */
   type: string | null;
+  /** Plaid subtype, for example "checking", "savings" or "credit card". Null until the next sync. */
+  subtype: string | null;
+  /** As of `balanceAsOf`, not live. For credit and loan accounts it is the amount owed. */
+  currentBalance: number | null;
+  /** ISO timestamp of the last sync that read the balance, or null when Plaid reported none. */
+  balanceAsOf: string | null;
 };
 
 export type PlaidItem = {

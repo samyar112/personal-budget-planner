@@ -287,13 +287,17 @@
   opacity: 0.9;
 }
 
-/* Card chip */
+/* Card chip: gold with contact lines, so it reads as an EMV chip and not as a checkbox. */
 .card-chip {
-  width: 28px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
+  position: relative;
+  width: 30px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background:
+    linear-gradient(90deg, transparent 32%, rgba(0, 0, 0, 0.28) 32% 35%, transparent 35% 65%, rgba(0, 0, 0, 0.28) 65% 68%, transparent 68%),
+    linear-gradient(0deg, transparent 42%, rgba(0, 0, 0, 0.28) 42% 46%, transparent 46% 54%, rgba(0, 0, 0, 0.28) 54% 58%, transparent 58%),
+    linear-gradient(135deg, #f1d58a, #c99a3c);
 }
 
 /* Contactless icon */
@@ -349,19 +353,101 @@
 
 /* Smaller cards inside a bank row, so expanding one bank does not take over the page. */
 .payment-card--compact {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 4px;
   min-height: 0;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border-radius: 12px;
 }
 
+.payment-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
 
-.bank-row__name {
+.payment-card__kind {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.payment-card--compact .payment-card__name {
+  margin-top: 0;
+}
+
+.payment-card__balance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  margin-top: 6px;
+}
+
+.payment-card__balance-label,
+.payment-card__balance-asof {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.payment-card__balance-amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+
+/* Checking, savings and other non-card accounts: a plain row, not a card. */
+.account-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.account-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-row:last-child {
+  border-bottom: 0;
+}
+
+.account-row__main,
+.account-row__balance {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.account-row__balance {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.account-row__name {
   font-weight: 600;
 }
 
-.bank-row__accounts {
-  font-size: 0.85rem;
+.account-row__amount {
+  font-weight: 700;
+}
+
+.account-row__meta {
+  font-size: 0.75rem;
   color: var(--muted-foreground);
+}
+
+.bank-row__name {
+  font-weight: 600;
 }
 
 
