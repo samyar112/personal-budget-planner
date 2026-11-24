@@ -35,7 +35,9 @@ public sealed record PlaidItemResponse(
     Guid Id,
     string? Institution,
     DateTime? LastSyncedAt,
-    IReadOnlyList<LinkedAccountResponse> Accounts);
+    IReadOnlyList<LinkedAccountResponse> Accounts,
+    string? Logo = null,
+    string? PrimaryColor = null);
 
 /// <summary>Ledger rows inserted, updated and deleted by one sync.</summary>
 public sealed record PlaidSyncResponse(int Added, int Modified, int Removed, DateTime LastSyncedAt);

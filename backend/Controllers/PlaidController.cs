@@ -103,6 +103,8 @@ public sealed class PlaidController(
             EncryptedAccessToken = protector.Protect(exchange.AccessToken, userId),
             InstitutionId = details.InstitutionId,
             InstitutionName = details.InstitutionName,
+            InstitutionLogo = InstitutionBranding.CleanLogo(details.Logo),
+            InstitutionColor = InstitutionBranding.CleanColor(details.PrimaryColor),
         };
         db.PlaidItems.Add(item);
 
@@ -163,7 +165,7 @@ public sealed class PlaidController(
             .AsNoTracking()
             .Where(item => item.UserId == userId)
             .OrderBy(item => item.CreatedAt)
-            .Select(item => new { item.Id, item.InstitutionName, item.LastSyncedAt })
+            .Select(item => new { item.Id, item.InstitutionName, item.LastSyncedAt, item.InstitutionLogo, item.InstitutionColor })
             .ToListAsync(cancellationToken);
 
         var itemIds = items.Select(item => item.Id).ToList();
@@ -181,7 +183,9 @@ public sealed class PlaidController(
                 item.Id,
                 item.InstitutionName,
                 item.LastSyncedAt,
-                byItem[item.Id].Select(ToResponse).ToList()))
+                byItem[item.Id].Select(ToResponse).ToList(),
+                item.InstitutionLogo,
+                item.InstitutionColor))
             .ToList());
     }
 

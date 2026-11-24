@@ -438,6 +438,24 @@
   color: var(--muted-foreground);
 }
 
+/* The bank's logo, or its initial on the brand colour. Same box either way so rows line up. */
+.bank-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: contain;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.bank-logo--initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .bank-panel__heading {
   font-weight: 600;
 }

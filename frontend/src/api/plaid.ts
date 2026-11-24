@@ -21,6 +21,10 @@ export type PlaidItem = {
   /** ISO timestamp, or null until the first sync commits. */
   lastSyncedAt: string | null;
   accounts: LinkedAccount[];
+  /** Base64 PNG of the bank's logo, or null when Plaid has none. Build a data URL from it to show. */
+  logo: string | null;
+  /** The bank's brand colour as #rrggbb, or null. */
+  primaryColor: string | null;
 };
 
 export type PlaidSyncResult = { added: number; modified: number; removed: number; lastSyncedAt: string };

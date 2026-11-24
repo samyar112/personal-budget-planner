@@ -173,6 +173,13 @@ public sealed class FakePlaidClient : IPlaidClient
         return exchange;
     }
 
+    /// <summary>Changes the logo and colour Plaid returns for this access token, as if the bank's branding changed.</summary>
+    public void SetBranding(string accessToken, string? logo, string? primaryColor)
+    {
+        var current = _byAccessToken[accessToken];
+        _byAccessToken[accessToken] = current with { Logo = logo, PrimaryColor = primaryColor };
+    }
+
     /// <summary>Queues the next page <see cref="SyncTransactionsAsync"/> returns for this access token.</summary>
     public void EnqueueSync(string accessToken, PlaidSyncPage page) =>
         _syncPages.GetOrAdd(accessToken, _ => new()).Enqueue(() => page);

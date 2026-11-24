@@ -26,7 +26,12 @@ public interface IPlaidClient
 
 public sealed record PlaidExchangeResult(string AccessToken, string ItemId);
 
-public sealed record PlaidItemDetails(string? InstitutionId, string? InstitutionName, IReadOnlyList<PlaidAccount> Accounts);
+public sealed record PlaidItemDetails(
+    string? InstitutionId,
+    string? InstitutionName,
+    IReadOnlyList<PlaidAccount> Accounts,
+    string? Logo = null,
+    string? PrimaryColor = null);
 
 public sealed record PlaidAccount(
     string AccountId,
@@ -113,6 +118,8 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
 
         var institutionId = accounts.Item.InstitutionId;
         string? institutionName = null;
+        string? logo = null;
+        string? primaryColor = null;
         if (!string.IsNullOrEmpty(institutionId))
         {
             var institution = await PostAsync<InstitutionGetResponse>(
@@ -123,9 +130,12 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
                     secret = _options.Secret,
                     institution_id = institutionId,
                     country_codes = CountryCodes,
+                    options = new { include_optional_metadata = true },
                 },
                 cancellationToken);
             institutionName = institution.Institution.Name;
+            logo = institution.Institution.Logo;
+            primaryColor = institution.Institution.PrimaryColor;
         }
 
         return new PlaidItemDetails(
@@ -134,7 +144,9 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
             accounts.Accounts
                 .Select(account => new PlaidAccount(
                     account.AccountId, account.Name, account.Mask, account.Type, account.Subtype, account.Balances?.Current))
-                .ToList());
+                .ToList(),
+            logo,
+            primaryColor);
     }
 
     public async Task RemoveItemAsync(string accessToken, CancellationToken cancellationToken) =>
@@ -262,5 +274,7 @@ public sealed class PlaidClient(HttpClient http, IOptions<PlaidOptions> options)
         [property: JsonPropertyName("institution")] InstitutionEntry Institution);
 
     private sealed record InstitutionEntry(
-        [property: JsonPropertyName("name")] string Name);
+        [property: JsonPropertyName("name")] string Name,
+        [property: JsonPropertyName("logo")] string? Logo,
+        [property: JsonPropertyName("primary_color")] string? PrimaryColor);
 }

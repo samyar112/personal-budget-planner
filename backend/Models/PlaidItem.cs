@@ -6,6 +6,9 @@ namespace backend.Models;
 /// </summary>
 public class PlaidItem
 {
+    /// <summary>Longest logo we store. Plaid's are about 3 KB of base64, so this leaves room without letting a row balloon.</summary>
+    public const int MaxLogoLength = 20_000;
+
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
     public User User { get; set; } = null!;
@@ -20,6 +23,12 @@ public class PlaidItem
     public string? InstitutionId { get; set; }
 
     public string? InstitutionName { get; set; }
+
+    /// <summary>Base64 PNG of the bank's logo as Plaid supplies it, validated before storing. Null when Plaid has none.</summary>
+    public string? InstitutionLogo { get; set; }
+
+    /// <summary>The bank's brand colour as #rrggbb, validated before storing. Null when Plaid has none.</summary>
+    public string? InstitutionColor { get; set; }
 
     /// <summary>
     /// Plaid's <c>/transactions/sync</c> position. Null until the first successful sync. Only ever
