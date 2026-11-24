@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 namespace backend.Models;
 
 /// <summary>
@@ -36,6 +38,21 @@ public static class TransactionCategory
         GovernmentAndNonProfit, Transportation, Travel, RentAndUtilities, Other,
     ];
 
+    /// <summary>
+    /// Plaid's subcategory for paying a credit card. It shows up twice, as money out of the paying account
+    /// and as money into the card, so summaries leave it out; the card's own purchases are already counted.
+    /// </summary>
+    public const string CreditCardPayment = "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT";
+
     /// <summary>True for money moved between the user's own accounts, which summaries should leave out.</summary>
     public static bool IsTransfer(string? category) => category is TransferIn or TransferOut;
+
+    /// <summary>
+    /// The one rule for what income, expense and savings figures count: everything except transfers and
+    /// credit card payments. An expression, so it runs in the database. Rows with no category count.
+    /// </summary>
+    public static readonly Expression<Func<Transaction, bool>> CountedInSummaries = transaction =>
+        transaction.Category != TransferIn
+        && transaction.Category != TransferOut
+        && transaction.Subcategory != CreditCardPayment;
 }
