@@ -4,6 +4,7 @@ using backend.Data;
 using backend.DTOs;
 using backend.Extensions;
 using backend.Models;
+using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ public sealed class TransactionsController(AppDbContext db) : ControllerBase
     private const int MaxPageSize = 100;
     private const int MaxMonths = 24;
     private const int MaxMerchants = 50;
+    private const int RecurringWindowMonths = 13;
 
     /// <summary>
     /// Income, expenses and net cash flow for a date range, per account and in total. Internal transfers and
@@ -231,6 +233,48 @@ public sealed class TransactionsController(AppDbContext db) : ControllerBase
             .ToListAsync(cancellationToken);
 
         return Ok(new TopMerchantsResponse(merchants));
+    }
+
+    /// <summary>
+    /// Repeating charges found in the last <see cref="RecurringWindowMonths"/> months of spending, soonest
+    /// next charge first. Same counted rows as the summary, money out only: income, own-account transfers,
+    /// card payments and refunds never become bills. See <see cref="RecurringDetector"/> for the rules.
+    /// </summary>
+    [HttpGet("recurring")]
+    [ProducesResponseType<RecurringListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<RecurringListResponse>> Recurring(CancellationToken cancellationToken)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var (rows, error) = await CountedRowsAsync(today.AddMonths(-RecurringWindowMonths), today, null, cancellationToken);
+        if (rows is null)
+        {
+            return error!;
+        }
+
+        var charges = await rows
+            .Where(TransactionCategory.IsSpending)
+            .Where(transaction => transaction.Amount < 0)
+            .Select(transaction => new RecurringCandidate(
+                transaction.Date, transaction.Description, -transaction.Amount, transaction.Category))
+            .ToListAsync(cancellationToken);
+
+        var streams = RecurringDetector.Detect(charges, today)
+            .Select(stream => new RecurringStreamResponse(
+                stream.Merchant,
+                stream.Category,
+                stream.Cadence,
+                stream.TypicalAmount,
+                stream.LastAmount,
+                stream.LastDate,
+                stream.NextDate,
+                stream.Occurrences,
+                stream.MonthlyCost,
+                stream.IsSubscription))
+            .ToList();
+
+        return Ok(new RecurringListResponse(streams.Sum(stream => stream.MonthlyCost), streams));
     }
 
     /// <summary>
