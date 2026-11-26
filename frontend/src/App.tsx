@@ -12,6 +12,7 @@ import Accounts from "./pages/Accounts";
 import Transactions from "./pages/Transactions";
 import Bills from "./pages/Bills";
 import Insights from "./pages/Insights";
+import Privacy from "./pages/Privacy";
 import AppLayout from "./components/AppLayout";
 
 // Recharts is most of the bundle and only this page uses it, so it loads when the page is opened.
@@ -95,6 +96,7 @@ const App = () => {
             }
           />
           <Route path="/insights" element={<Insights />} />
+          <Route path="/privacy" element={<Privacy />} />
           <Route
             path="/admin/users"
             element={
