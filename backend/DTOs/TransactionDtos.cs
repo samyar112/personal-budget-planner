@@ -62,3 +62,23 @@ public sealed record MerchantSpendingResponse(string Merchant, decimal Amount, i
 
 /// <summary>The largest payees by net spending, largest first. Payees with nothing left after refunds are left out.</summary>
 public sealed record TopMerchantsResponse(IReadOnlyList<MerchantSpendingResponse> Merchants);
+
+/// <summary>
+/// A repeating charge found in the ledger. <c>Merchant</c> is the latest charge's description;
+/// <c>Cadence</c> is weekly, biweekly, monthly, quarterly or yearly; <c>MonthlyCost</c> is the typical
+/// amount scaled to one month. Detected on request, not stored, so it cannot be confirmed or dismissed yet.
+/// </summary>
+public sealed record RecurringStreamResponse(
+    string Merchant,
+    string? Category,
+    string Cadence,
+    decimal TypicalAmount,
+    decimal LastAmount,
+    DateOnly LastDate,
+    DateOnly NextDate,
+    int Occurrences,
+    decimal MonthlyCost,
+    bool IsSubscription);
+
+/// <summary>Active recurring charges, soonest first. <c>MonthlyTotal</c> is the sum of their monthly costs.</summary>
+public sealed record RecurringListResponse(decimal MonthlyTotal, IReadOnlyList<RecurringStreamResponse> Streams);

@@ -122,6 +122,37 @@ export async function fetchTopMerchants(
   return (await getSpending<{ merchants: MerchantSpending[] }>("merchants", { ...rest, limit: limit?.toString() })).merchants;
 }
 
+/** A repeating charge found in the ledger. Dates are yyyy-MM-dd; `monthlyCost` is the typical amount per month. */
+export type RecurringStream = {
+  merchant: string;
+  category: string | null;
+  cadence: "weekly" | "biweekly" | "monthly" | "quarterly" | "yearly";
+  typicalAmount: number;
+  lastAmount: number;
+  lastDate: string;
+  nextDate: string;
+  occurrences: number;
+  monthlyCost: number;
+  isSubscription: boolean;
+};
+
+export type RecurringList = { monthlyTotal: number; streams: RecurringStream[] };
+
+/** Active recurring charges, soonest next charge first, detected from the last 13 months. */
+export async function fetchRecurring(): Promise<RecurringList> {
+  const response = await apiFetch("/api/transactions/recurring");
+  if (response.ok) {
+    return (await response.json()) as RecurringList;
+  }
+
+  throw new ApiError(
+    response.status === 403
+      ? "Verify your email to see your bills."
+      : "Could not load your bills. Try again.",
+    response.status,
+  );
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   INCOME: "Income",
   TRANSFER_IN: "Transfers in",
