@@ -15,7 +15,7 @@ namespace backend.Controllers;
 [ApiController]
 [Route("api/transactions")]
 [Authorize(Policy = AuthSecurityExtensions.VerifiedEmailPolicy)]
-public sealed class TransactionsController(AppDbContext db) : ControllerBase
+public sealed class TransactionsController(AppDbContext db, HealthScoreService healthScore) : ControllerBase
 {
     private const int MaxPageSize = 100;
     private const int MaxMonths = 24;
@@ -275,6 +275,28 @@ public sealed class TransactionsController(AppDbContext db) : ControllerBase
             .ToList();
 
         return Ok(new RecurringListResponse(streams.Sum(stream => stream.MonthlyCost), streams));
+    }
+
+    /// <summary>
+    /// The financial health score, 0–100, from eight rule-based indicators in four components. Computed on
+    /// every read from the caller's own accounts and counted rows; nothing here is sent to an AI provider.
+    /// See <see cref="HealthScore"/> for the rules.
+    /// </summary>
+    [HttpGet("health-score")]
+    [ProducesResponseType<HealthScoreResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<HealthScoreResponse>> Health(CancellationToken cancellationToken)
+    {
+        var subject =
+            User.FindFirstValue(ClaimTypes.NameIdentifier)
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        if (!Guid.TryParse(subject, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        return Ok(await healthScore.ComputeAsync(userId, DateOnly.FromDateTime(DateTime.UtcNow), cancellationToken));
     }
 
     /// <summary>

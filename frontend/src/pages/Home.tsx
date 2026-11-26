@@ -4,6 +4,7 @@ import { ApiError } from "../api/auth";
 import { fetchSummary, formatMoney, toDateString, type TransactionSummary } from "../api/transactions";
 import AccountSummaryCards from "../components/AccountSummaryCards";
 import ConnectBankButton from "../components/ConnectBankButton";
+import HealthScoreCard from "../components/HealthScoreCard";
 
 const Home = () => {
   const [summary, setSummary] = useState<
@@ -98,6 +99,8 @@ const Home = () => {
           </div>
         ))}
       </div>
+
+      <HealthScoreCard reloadKey={attempt} />
 
       {summary.status === "ready" && <AccountSummaryCards accounts={summary.summary.accounts} reloadKey={attempt} />}
 
