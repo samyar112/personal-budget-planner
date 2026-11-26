@@ -49,3 +49,44 @@ export async function fetchPayloadPreview(): Promise<AiPayloadPreview> {
     response.status,
   );
 }
+
+/**
+ * One roadmap step, computed by the rules and never written by the AI. `per` is "month" for a monthly amount or
+ * "total" for a balance to reach; `by` is the estimated month (yyyy-MM-dd, first of the month).
+ */
+export type RoadmapStep = { label: string; amount: number; per: "month" | "total"; by: string | null };
+
+/** One tip. `id` is the rule that chose it; `source` says whether this tip's wording is the AI's or ours. */
+export type AiTip = { id: string; title: string; text: string; source: "ai" | "template"; steps: RoadmapStep[] };
+
+/** "ai" when every tip is the AI's checked wording, "template" when none is, "mixed" otherwise. */
+export type AiTipsResponse = {
+  source: "ai" | "template" | "mixed";
+  model: string | null;
+  tips: AiTip[];
+  dataGaps: string[];
+  createdAt: string;
+};
+
+/** Sends the previewed payload for tips. Calling this is the user's consent to send it. */
+export async function generateTips(): Promise<AiTipsResponse> {
+  const response = await apiFetch("/api/ai/tips", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ consent: true }),
+  });
+  if (response.ok) {
+    return (await response.json()) as AiTipsResponse;
+  }
+
+  throw new ApiError(
+    response.status === 422
+      ? "The privacy check blocked this request, so nothing was sent."
+      : response.status === 429
+        ? "You have generated tips the maximum number of times today. Try again tomorrow."
+        : response.status === 403
+          ? "Verify your email to generate tips."
+          : "Could not generate tips. Try again.",
+    response.status,
+  );
+}
