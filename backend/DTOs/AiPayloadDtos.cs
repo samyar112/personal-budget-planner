@@ -52,3 +52,9 @@ public sealed record PrivacyCheck(string Id, string Label, int Hits, bool Passed
 
 /// <summary>The payload, and the report about it, built together from one read of the ledger.</summary>
 public sealed record AiPayloadResult(AiPayload Payload, PayloadPrivacyReport Report);
+
+/// <summary>
+/// The privacy preview. <c>PayloadJson</c> is the exact serialised payload, so the "view exact JSON" toggle
+/// shows the bytes that would be sent rather than the browser's own re-serialisation of them.
+/// </summary>
+public sealed record AiPayloadPreviewResponse(AiPayload Payload, string PayloadJson, PayloadPrivacyReport Report);

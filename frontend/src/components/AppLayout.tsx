@@ -26,6 +26,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: "/spending", label: "Spending", icon: "spending" },
       { to: "/insights", label: "Insights", icon: "insights" },
+      { to: "/privacy", label: "Privacy", icon: "privacy" },
     ],
   },
   { title: "Admin", adminOnly: true, items: [{ to: "/admin/users", label: "Users", icon: "users" }] },
