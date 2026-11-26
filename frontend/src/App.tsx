@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { fetchCurrentUser } from "./api/auth";
 import { clearAuthSession } from "./components/BrandName";
@@ -11,9 +11,11 @@ import AdminUsers from "./pages/AdminUsers";
 import Accounts from "./pages/Accounts";
 import Transactions from "./pages/Transactions";
 import Bills from "./pages/Bills";
-import Spending from "./pages/Spending";
 import Insights from "./pages/Insights";
 import AppLayout from "./components/AppLayout";
+
+// Recharts is most of the bundle and only this page uses it, so it loads when the page is opened.
+const Spending = lazy(() => import("./pages/Spending"));
 
 /**
  * Allows /home only when /api/auth/me succeeds (HttpOnly cookie). No client-side flag can grant
@@ -78,7 +80,20 @@ const App = () => {
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/transactions" element={<Transactions />} />
           <Route path="/bills" element={<Bills />} />
-          <Route path="/spending" element={<Spending />} />
+          <Route
+            path="/spending"
+            element={
+              <Suspense
+                fallback={
+                  <div className="text-center py-5" role="status">
+                    <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" /> Loading…
+                  </div>
+                }
+              >
+                <Spending />
+              </Suspense>
+            }
+          />
           <Route path="/insights" element={<Insights />} />
           <Route
             path="/admin/users"
