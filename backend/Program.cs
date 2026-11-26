@@ -64,6 +64,7 @@ builder.Services.AddScoped<EmailVerificationService>();
 builder.Services.AddScoped<PasswordResetService>();
 builder.Services.AddScoped<LoginCodeService>();
 builder.Services.AddScoped<LedgerSeeder>();
+builder.Services.AddScoped<AiPayloadBuilder>();
 
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
