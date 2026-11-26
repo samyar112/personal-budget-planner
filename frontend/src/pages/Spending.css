@@ -1,0 +1,59 @@
+/* =========================
+   SPENDING PAGE
+   ========================= */
+
+.spending-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.spending-filters h4 {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.spending-filters__account {
+  width: auto;
+  min-width: 200px;
+  max-width: 100%;
+}
+
+.spending-chart {
+  height: 100%;
+}
+
+.spending-chart__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.spending-chart__header h5 {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.spending-chart__subtitle {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.spending-chart__state {
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+/* Recharts draws a focus outline on click; the bar colour already shows the selection. */
+.spending-chart .recharts-wrapper:focus,
+.spending-chart .recharts-surface:focus {
+  outline: none;
+}

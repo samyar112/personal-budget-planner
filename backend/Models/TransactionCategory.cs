@@ -70,6 +70,14 @@ public static class TransactionCategory
         && transaction.Subcategory != CreditCardPayment;
 
     /// <summary>
+    /// A counted row that is spending: anything not income. Income is the INCOME category, or money in on a
+    /// row with no category; the summary's income sum uses the same rule. Refunds are spending rows with a
+    /// positive amount, so they net against their own category. An expression, so it runs in the database.
+    /// </summary>
+    public static readonly Expression<Func<Transaction, bool>> IsSpending = transaction =>
+        transaction.Category != Income && (transaction.Category != null || transaction.Amount <= 0);
+
+    /// <summary>
     /// Plaid's v2 taxonomy, mapped onto the v1 set stored here. Teams created after December 2025 receive
     /// v2. Keyed by detailed code; <see cref="FromPlaid"/> also maps a v2-only primary with no detailed code.
     /// </summary>
