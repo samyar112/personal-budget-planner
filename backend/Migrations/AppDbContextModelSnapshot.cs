@@ -34,6 +34,10 @@ namespace backend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal?>("CreditLimit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<decimal?>("CurrentBalance")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");

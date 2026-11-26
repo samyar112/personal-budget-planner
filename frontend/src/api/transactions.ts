@@ -174,6 +174,40 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 /** A readable name for a ledger category code; unknown codes fall back to "Other". */
+export type HealthIndicator = {
+  id: string;
+  name: string;
+  score: number | null;
+  reason: string;
+  method: string;
+  estimated: boolean;
+};
+
+export type HealthComponent = { id: string; name: string; score: number | null; indicators: HealthIndicator[] };
+
+export type HealthScore = {
+  score: number | null;
+  tier: "Healthy" | "Coping" | "Vulnerable" | null;
+  indicatorsScored: number;
+  indicatorsTotal: number;
+  monthsComplete: number;
+  components: HealthComponent[];
+};
+
+export async function fetchHealthScore(): Promise<HealthScore> {
+  const response = await apiFetch("/api/transactions/health-score");
+  if (response.ok) {
+    return (await response.json()) as HealthScore;
+  }
+
+  throw new ApiError(
+    response.status === 403
+      ? "Verify your email to see your health score."
+      : "Could not load your health score. Try again.",
+    response.status,
+  );
+}
+
 export function categoryLabel(code: string | null): string {
   return (code && CATEGORY_LABELS[code]) ?? "Other";
 }

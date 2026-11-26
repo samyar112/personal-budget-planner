@@ -39,5 +39,11 @@ public class Account
     /// <summary>When <see cref="CurrentBalance"/> was read from Plaid. Null when Plaid reported no balance.</summary>
     public DateTime? BalanceAsOf { get; set; }
 
+    /// <summary>
+    /// The card's credit limit from the last link or sync, for card utilisation in the health score. Null for
+    /// non-credit accounts and when Plaid reports none. Financial data: must stay out of any AI payload.
+    /// </summary>
+    public decimal? CreditLimit { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

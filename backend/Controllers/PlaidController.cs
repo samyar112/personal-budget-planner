@@ -132,6 +132,7 @@ public sealed class PlaidController(
             account.Subtype = plaidAccount.Subtype;
             account.CurrentBalance = plaidAccount.CurrentBalance;
             account.BalanceAsOf = plaidAccount.CurrentBalance is null ? null : DateTime.UtcNow;
+            account.CreditLimit = plaidAccount.CreditLimit;
             linked.Add(account);
         }
 

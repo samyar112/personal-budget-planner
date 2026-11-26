@@ -86,6 +86,7 @@ public sealed class PlaidSyncService(
                 account.Subtype = plaidAccount.Subtype;
                 account.CurrentBalance = plaidAccount.CurrentBalance;
                 account.BalanceAsOf = plaidAccount.CurrentBalance is null ? null : DateTime.UtcNow;
+                account.CreditLimit = plaidAccount.CreditLimit;
             }
         }
 

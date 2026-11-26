@@ -26,8 +26,8 @@ namespace backend.Tests;
  * 12. When another sync of the same item commits first, this one returns 409 and the winner's cursor stands.
  * 13. Sync refreshes each account's mask and type from Plaid, for banks linked before they were stored.
  * 14. Sync stores Plaid's category and subcategory, falls back to keywords then OTHER, and a modified row is recategorised.
- * 15. Linking stores each account's subtype, current balance and when the balance was read.
- * 16. Sync refreshes subtype and balance, for banks linked before they were stored.
+ * 15. Linking stores each account's subtype, current balance, when the balance was read, and a card's limit.
+ * 16. Sync refreshes subtype, balance and card limit, for banks linked before they were stored.
  * 17. Listing items returns each account's subtype, balance and balance time.
  * 18. An account Plaid reports no balance for keeps a null balance and a null balance time.
  * 19. Unlinking a bank revokes its token at Plaid, then deletes its transactions, accounts and the item.
@@ -294,6 +294,8 @@ public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
         var card = rows.Single(row => row.Name == "Credit Card");
         Assert.Equal("credit card", card.Subtype);
         Assert.Equal(250.10m, card.CurrentBalance);
+        Assert.Equal(1000m, card.CreditLimit);
+        Assert.Null(checking.CreditLimit);
     }
 
     [Fact]
@@ -308,6 +310,7 @@ public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
                 account.Subtype = null;
                 account.CurrentBalance = null;
                 account.BalanceAsOf = null;
+                account.CreditLimit = null;
             }
 
             return await db.SaveChangesAsync();
@@ -319,6 +322,7 @@ public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
         var card = await WithDbAsync(_factory, db => db.Accounts.SingleAsync(row => row.UserId == userId && row.Name == "Credit Card"));
         Assert.Equal("credit card", card.Subtype);
         Assert.Equal(250.10m, card.CurrentBalance);
+        Assert.Equal(1000m, card.CreditLimit);
         Assert.NotNull(card.BalanceAsOf);
     }
 
@@ -624,7 +628,7 @@ public sealed class PlaidSyncTests : IClassFixture<AuthWebApplicationFactory>
             publicToken,
             institution,
             new PlaidAccount(checkingId, "Checking", "0000", "depository", "checking", 1234.56m),
-            new PlaidAccount($"acct-{Guid.NewGuid():N}", "Credit Card", "3333", "credit", "credit card", 250.10m));
+            new PlaidAccount($"acct-{Guid.NewGuid():N}", "Credit Card", "3333", "credit", "credit card", 250.10m, 1000m));
 
         var response = await client.PostAsJsonAsync("/api/plaid/exchange", new PlaidExchangeRequest(publicToken));
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
