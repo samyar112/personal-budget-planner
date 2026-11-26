@@ -118,22 +118,6 @@
 }
 
 /* =========================
-   CHART PLACEHOLDER
-========================= */
-
-.placeholder-chart {
-  height: 320px;
-  border-radius: 16px;
-  background: var(--muted);
-  border: 1px dashed var(--secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--primary);
-  font-weight: 600;
-}
-
-/* =========================
    RECOMMENDATIONS
 ========================= */
 .recommendation-list {
