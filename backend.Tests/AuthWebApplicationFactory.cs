@@ -102,6 +102,11 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<FakePlaidClient>();
             services.AddSingleton<IPlaidClient>(provider => provider.GetRequiredService<FakePlaidClient>());
 
+            // No test may reach an AI provider.
+            services.RemoveAll<IAdvisorModel>();
+            services.AddSingleton<FakeAdvisorModel>();
+            services.AddSingleton<IAdvisorModel>(provider => provider.GetRequiredService<FakeAdvisorModel>());
+
             // No test may reach Google; each fake token maps to an identity a test registers.
             services.RemoveAll<IGoogleTokenVerifier>();
             services.AddSingleton<FakeGoogleTokenVerifier>();
@@ -117,6 +122,56 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
     public FakeGoogleTokenVerifier Google => Services.GetRequiredService<FakeGoogleTokenVerifier>();
 
     public FakePlaidClient Plaid => Services.GetRequiredService<FakePlaidClient>();
+
+    public FakeAdvisorModel Advisor => Services.GetRequiredService<FakeAdvisorModel>();
+}
+
+/// <summary>
+/// Stands in for the AI provider. By default it echoes the first three candidates' own wording, which is
+/// always valid. A test can set <see cref="Reply"/> to return something else, or <see cref="Fail"/> to throw
+/// the way an outage or a withdrawn free model does. Every user message is kept for privacy assertions.
+/// </summary>
+public sealed class FakeAdvisorModel : IAdvisorModel
+{
+    public const string ModelName = "fake/advisor-model";
+
+    public System.Collections.Concurrent.ConcurrentQueue<string> Requests { get; } = new();
+
+    public Func<string, string>? Reply { get; set; }
+
+    public bool Fail { get; set; }
+
+    public bool IsConfigured => true;
+
+    public Task<AdvisorModelReply> CompleteAsync(string systemPrompt, string userContent, CancellationToken cancellationToken)
+    {
+        Requests.Enqueue(userContent);
+        if (Fail)
+        {
+            throw new AdvisorModelException("AI provider returned 503.");
+        }
+
+        return Task.FromResult(new AdvisorModelReply((Reply ?? Echo)(userContent), ModelName));
+    }
+
+    /// <summary>Resets to the default echo behaviour. Call at the start of each test that uses the fake.</summary>
+    public void Reset()
+    {
+        Reply = null;
+        Fail = false;
+    }
+
+    public static string Echo(string userContent)
+    {
+        var candidates = System.Text.Json.Nodes.JsonNode.Parse(userContent)!["candidates"]!.AsArray();
+        var tips = candidates.Take(3).Select(candidate => new
+        {
+            candidateId = candidate!["id"]!.GetValue<string>(),
+            title = candidate["title"]!.GetValue<string>(),
+            text = candidate["text"]!.GetValue<string>(),
+        });
+        return System.Text.Json.JsonSerializer.Serialize(new { tips });
+    }
 }
 
 /// <summary>

@@ -45,6 +45,9 @@
     "Environment": "sandbox",
     "TokenEncryptionKey": "REPLACE_WITH_openssl_rand_-base64_32_OUTPUT"
   },
+  "AiAdvisor": {
+    "ApiKey": "OPENROUTER_KEY_FROM_openrouter.ai/keys_OR_EMPTY_FOR_TEMPLATE_TIPS"
+  },
   "Cors": {
     "AllowedOrigins": [
       "http://localhost:5173",

@@ -16,6 +16,7 @@ public class AppDbContext : DbContext
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<PlaidItem> PlaidItems => Set<PlaidItem>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
+    public DbSet<AiRecommendation> AiRecommendations => Set<AiRecommendation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -130,6 +131,20 @@ public class AppDbContext : DbContext
             entity.HasOne(item => item.User)
                 .WithMany()
                 .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AiRecommendation>(entity =>
+        {
+            entity.Property(row => row.PayloadSha256).HasMaxLength(64);
+            entity.Property(row => row.PromptVersion).HasMaxLength(20);
+            entity.Property(row => row.Source).HasConversion<string>().HasMaxLength(10);
+            entity.Property(row => row.Model).HasMaxLength(200);
+            // The daily limit counts a user's rows since midnight UTC.
+            entity.HasIndex(row => new { row.UserId, row.CreatedAt });
+            entity.HasOne<User>()
+                .WithMany()
+                .HasForeignKey(row => row.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
