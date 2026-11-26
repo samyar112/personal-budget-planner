@@ -33,7 +33,7 @@ const AccountSummaryCards = ({ accounts, reloadKey }: { accounts: AccountSummary
   return (
     <section className="mb-4" aria-label="By account">
       <h5 className="mb-3">
-        By account <span className="summary-card__window">· last 30 days</span>
+        By account <span className="summary-card__window">· this month</span>
       </h5>
       <div className="row g-3">
         {items.flatMap((item) =>

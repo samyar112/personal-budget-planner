@@ -28,10 +28,10 @@ public sealed record AccountSummaryResponse(Guid AccountId, decimal Income, deci
 
 /// <summary>
 /// Totals for a date range, with transfers and credit card payments left out. The totals are the sum
-/// of <c>Accounts</c>, so the two always reconcile. <c>Savings</c> is income minus expenses.
+/// of <c>Accounts</c>, so the two always reconcile. <c>NetCashFlow</c> is income minus expenses: money left over, not money moved into savings.
 /// </summary>
 public sealed record TransactionSummaryResponse(
     decimal Income,
     decimal Expenses,
-    decimal Savings,
+    decimal NetCashFlow,
     IReadOnlyList<AccountSummaryResponse> Accounts);

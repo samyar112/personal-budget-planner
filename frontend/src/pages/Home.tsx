@@ -18,9 +18,8 @@ const Home = () => {
       setSummary({ status: "loading" });
       try {
         const today = new Date();
-        const windowStart = new Date(today);
-        windowStart.setDate(today.getDate() - 29);
-        const result = await fetchSummary({ from: toDateString(windowStart), to: toDateString(today) });
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        const result = await fetchSummary({ from: toDateString(monthStart), to: toDateString(today) });
         if (!cancelled) setSummary({ status: "ready", summary: result });
       } catch (err) {
         if (!cancelled) {
@@ -88,12 +87,12 @@ const Home = () => {
           [
             ["income", "Income", summary.status === "ready" ? summary.summary.income : null],
             ["expense", "Expenses", summary.status === "ready" ? summary.summary.expenses : null],
-            ["savings", "Savings", summary.status === "ready" ? summary.summary.savings : null],
+            ["savings", "Net cash flow", summary.status === "ready" ? summary.summary.netCashFlow : null],
           ] as const
         ).map(([className, label, value]) => (
           <div className="col-md-4" key={className}>
             <div className={`summary-card ${className}`}>
-              <h6>{label} <span className="summary-card__window">· last 30 days</span></h6>
+              <h6>{label} <span className="summary-card__window">· this month</span></h6>
               <h3>{value === null ? "—" : formatMoney(value)}</h3>
             </div>
           </div>

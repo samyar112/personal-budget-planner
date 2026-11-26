@@ -13,11 +13,14 @@ namespace backend.Tests;
  * Test cases:
  * 1. A summary without a session returns 401.
  * 2. An unverified user is refused with 403.
- * 3. Income is all money in, expenses is all money out, and savings is the difference.
- * 4. Transfers (in and out) and credit card payments are left out of every figure.
+ * 3. Income is INCOME rows, expenses is money out, and net cash flow is the difference.
+ * 4. Transfers between own accounts and credit card payments are left out of every figure.
  * 5. Other loan payments still count as expenses.
- * 6. A credit that is not categorised INCOME, such as a refund or deposit, counts as income; expenses never go negative.
+ * 6. A refund (a credit outside INCOME) reduces expenses and is not income.
  * 7. A row with no category counts by sign.
+ * 14. Refunds larger than spending make expenses negative rather than income.
+ * 15. Cash withdrawals and other transfers out count as expenses; own-account transfers do not.
+ * 16. A transfer in is never income, whatever its subcategory (including loan proceeds).
  * 8. Each account gets its own figures, and the totals equal the sum of the accounts.
  * 9. An account with no rows in range still appears, with zeros.
  * 10. from and to bound the dates inclusively.
@@ -57,7 +60,7 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
     }
 
     [Fact]
-    public async Task Summary_IncomeIsMoneyIn_ExpensesIsMoneyOut()
+    public async Task Summary_IncomeIsIncomeRows_ExpensesIsMoneyOut()
     {
         var (userId, email) = await SeedUserAsync();
         var account = await AddAccountAsync(userId, "Checking");
@@ -70,7 +73,7 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
 
         Assert.Equal(3000m, summary.Income);
         Assert.Equal(1500m, summary.Expenses);
-        Assert.Equal(1500m, summary.Savings);
+        Assert.Equal(1500m, summary.NetCashFlow);
     }
 
     [Fact]
@@ -91,7 +94,7 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
 
         Assert.Equal(2000m, summary.Income);
         Assert.Equal(60m, summary.Expenses);
-        Assert.Equal(1940m, summary.Savings);
+        Assert.Equal(1940m, summary.NetCashFlow);
     }
 
     [Fact]
@@ -108,7 +111,7 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
     }
 
     [Fact]
-    public async Task Summary_Refund_CountsAsIncome_AndExpensesStayPositive()
+    public async Task Summary_Refund_ReducesExpenses_AndIsNotIncome()
     {
         var (userId, email) = await SeedUserAsync();
         var account = await AddAccountAsync(userId, "Credit Card");
@@ -118,13 +121,13 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
 
         var summary = await GetSummaryAsync(client);
 
-        Assert.Equal(30m, summary.Income);
-        Assert.Equal(100m, summary.Expenses);
-        Assert.Equal(-70m, summary.Savings);
+        Assert.Equal(0m, summary.Income);
+        Assert.Equal(70m, summary.Expenses);
+        Assert.Equal(-70m, summary.NetCashFlow);
     }
 
     [Fact]
-    public async Task Summary_DepositThatIsNotCategorisedIncome_CountsAsIncome_NeverNegativeExpenses()
+    public async Task Summary_RefundsLargerThanSpending_MakeExpensesNegative()
     {
         var (userId, email) = await SeedUserAsync();
         var account = await AddAccountAsync(userId, "Checking");
@@ -134,11 +137,42 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
 
         var summary = await GetSummaryAsync(client);
 
-        Assert.Equal(500m, summary.Income);
-        Assert.Equal(50m, summary.Expenses);
-        Assert.Equal(450m, summary.Savings);
+        Assert.Equal(0m, summary.Income);
+        Assert.Equal(-450m, summary.Expenses);
+        Assert.Equal(450m, summary.NetCashFlow);
         var figures = Assert.Single(summary.Accounts);
-        Assert.Equal((500m, 50m, 450m), (figures.Income, figures.Expenses, figures.Net));
+        Assert.Equal((0m, -450m, 450m), (figures.Income, figures.Expenses, figures.Net));
+    }
+
+    [Fact]
+    public async Task Summary_CashAndOtherTransfersOut_CountAsExpenses_OwnAccountTransfersDoNot()
+    {
+        var (userId, email) = await SeedUserAsync();
+        var account = await AddAccountAsync(userId, "Checking");
+        await AddRowAsync(userId, account, -200m, "2026-10-02", "TRANSFER_OUT", "TRANSFER_OUT_WITHDRAWAL");
+        await AddRowAsync(userId, account, -900m, "2026-10-03", "TRANSFER_OUT", "TRANSFER_OUT_OTHER_TRANSFER_OUT");
+        await AddRowAsync(userId, account, -500m, "2026-10-04", "TRANSFER_OUT", "TRANSFER_OUT_ACCOUNT_TRANSFER");
+        await AddRowAsync(userId, account, -300m, "2026-10-05", "TRANSFER_OUT", "TRANSFER_OUT_SAVINGS");
+        await AddRowAsync(userId, account, -100m, "2026-10-06", "TRANSFER_OUT", null);
+        var client = await SignedInAsync(email);
+
+        var summary = await GetSummaryAsync(client);
+
+        Assert.Equal(1100m, summary.Expenses);
+    }
+
+    [Fact]
+    public async Task Summary_TransferIn_IsNeverIncome()
+    {
+        var (userId, email) = await SeedUserAsync();
+        var account = await AddAccountAsync(userId, "Checking");
+        await AddRowAsync(userId, account, 5000m, "2026-10-02", "TRANSFER_IN", "TRANSFER_IN_CASH_ADVANCES_AND_LOANS");
+        await AddRowAsync(userId, account, 80m, "2026-10-03", "TRANSFER_IN", "TRANSFER_IN_OTHER_TRANSFER_IN");
+        var client = await SignedInAsync(email);
+
+        var summary = await GetSummaryAsync(client);
+
+        Assert.Equal((0m, 0m, 0m), (summary.Income, summary.Expenses, summary.NetCashFlow));
     }
 
     [Fact]
@@ -176,7 +210,7 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
         Assert.Equal((0m, 100m, -100m), (cardFigures.Income, cardFigures.Expenses, cardFigures.Net));
         Assert.Equal(summary.Accounts.Sum(account => account.Income), summary.Income);
         Assert.Equal(summary.Accounts.Sum(account => account.Expenses), summary.Expenses);
-        Assert.Equal(summary.Accounts.Sum(account => account.Net), summary.Savings);
+        Assert.Equal(summary.Accounts.Sum(account => account.Net), summary.NetCashFlow);
     }
 
     [Fact]
@@ -238,7 +272,7 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
 
         var summary = await GetSummaryAsync(client);
 
-        Assert.Equal((0m, 0m, 0m), (summary.Income, summary.Expenses, summary.Savings));
+        Assert.Equal((0m, 0m, 0m), (summary.Income, summary.Expenses, summary.NetCashFlow));
         Assert.Empty(summary.Accounts);
     }
 
@@ -252,21 +286,24 @@ public sealed class TransactionSummaryEndpointTests : IClassFixture<AuthWebAppli
         await AddRowAsync(userId, account, -75.25m, "2026-10-03", "FOOD_AND_DRINK", null);
         await AddRowAsync(userId, account, -600m, "2026-10-04", "TRANSFER_OUT", null);
         await AddRowAsync(userId, account, -250m, "2026-10-05", "LOAN_PAYMENTS", "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT");
+        await AddRowAsync(userId, account, -40m, "2026-10-06", "TRANSFER_OUT", "TRANSFER_OUT_WITHDRAWAL");
+        await AddRowAsync(userId, account, 15m, "2026-10-07", "FOOD_AND_DRINK", null);
         var client = await SignedInAsync(email);
 
         var summary = await GetSummaryAsync(client);
         var list = (await client.GetFromJsonAsync<TransactionListResponse>($"/api/transactions?{Range}&pageSize=100"))!;
 
-        // The list is the source of truth: drop what summaries exclude and the rest must add up to Savings.
+        // The list is the source of truth: drop what summaries exclude and the rest must add up to net cash flow.
         var counted = list.Items
-            .Where(row => row.Category is not ("TRANSFER_IN" or "TRANSFER_OUT")
+            .Where(row => row.Category != "TRANSFER_IN"
+                && (row.Category != "TRANSFER_OUT" || row.Subcategory == "TRANSFER_OUT_WITHDRAWAL")
                 && row.Subcategory != "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT")
             .ToList();
-        Assert.Equal(5, list.Items.Count);
-        Assert.Equal(3, counted.Count);
-        Assert.Equal(counted.Sum(row => row.Amount), summary.Savings);
-        Assert.Equal(counted.Where(row => row.Amount > 0).Sum(row => row.Amount), summary.Income);
-        Assert.Equal(-counted.Where(row => row.Amount < 0).Sum(row => row.Amount), summary.Expenses);
+        Assert.Equal(7, list.Items.Count);
+        Assert.Equal(5, counted.Count);
+        Assert.Equal(counted.Sum(row => row.Amount), summary.NetCashFlow);
+        Assert.Equal(counted.Where(row => row.Category == "INCOME").Sum(row => row.Amount), summary.Income);
+        Assert.Equal(-counted.Where(row => row.Category != "INCOME").Sum(row => row.Amount), summary.Expenses);
     }
 
     private async Task<TransactionSummaryResponse> GetSummaryAsync(HttpClient client)

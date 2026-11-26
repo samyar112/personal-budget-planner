@@ -19,9 +19,9 @@ public sealed class TransactionsController(AppDbContext db) : ControllerBase
     private const int MaxPageSize = 100;
 
     /// <summary>
-    /// Income, expenses and savings for a date range, per account and in total. Transfers and credit card
-    /// payments are left out (see <see cref="TransactionCategory.CountedInSummaries"/>). The totals are the
-    /// sum of the accounts. <c>from</c> and <c>to</c> are inclusive dates (yyyy-MM-dd).
+    /// Income, expenses and net cash flow for a date range, per account and in total. Internal transfers and
+    /// credit card payments are left out (see <see cref="TransactionCategory.CountedInSummaries"/>). The
+    /// totals are the sum of the accounts. <c>from</c> and <c>to</c> are inclusive dates (yyyy-MM-dd).
     /// </summary>
     [HttpGet("summary")]
     [ProducesResponseType<TransactionSummaryResponse>(StatusCodes.Status200OK)]
@@ -54,14 +54,19 @@ public sealed class TransactionsController(AppDbContext db) : ControllerBase
             counted = counted.Where(transaction => transaction.Date <= end);
         }
 
-        // Income is every counted amount that is money in; net is every counted amount. Expenses follow as
-        // income - net, which is money out as a positive number, so it can never go negative.
+        // Income is decided by category, not sign: a refund is a credit but it is less spending, not income.
+        // Rows with no category fall back to sign. Net is every counted amount. Expenses follow as
+        // income - net: money out as a positive number, reduced by refunds, so it can go negative.
         var figures = await counted
             .GroupBy(transaction => transaction.AccountId)
             .Select(group => new
             {
                 AccountId = group.Key,
-                Income = group.Sum(transaction => transaction.Amount > 0 ? transaction.Amount : 0m),
+                Income = group.Sum(transaction =>
+                    transaction.Category == TransactionCategory.Income
+                    || (transaction.Category == null && transaction.Amount > 0)
+                        ? transaction.Amount
+                        : 0m),
                 Net = group.Sum(transaction => transaction.Amount),
             })
             .ToDictionaryAsync(figure => figure.AccountId, cancellationToken);

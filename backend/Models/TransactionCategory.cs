@@ -44,15 +44,54 @@ public static class TransactionCategory
     /// </summary>
     public const string CreditCardPayment = "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT";
 
-    /// <summary>True for money moved between the user's own accounts, which summaries should leave out.</summary>
+    /// <summary>Plaid's subcategory for cash taken out (ATM, teller). Money gone, so summaries count it as spending.</summary>
+    public const string CashWithdrawal = "TRANSFER_OUT_WITHDRAWAL";
+
+    /// <summary>
+    /// Plaid's subcategory for money sent to someone else, such as rent paid by Zelle. Also spending.
+    /// </summary>
+    public const string OtherTransferOut = "TRANSFER_OUT_OTHER_TRANSFER_OUT";
+
+    /// <summary>True for the transfer primaries. Not every transfer is internal; see <see cref="CountedInSummaries"/>.</summary>
     public static bool IsTransfer(string? category) => category is TransferIn or TransferOut;
 
     /// <summary>
-    /// The one rule for what income, expense and savings figures count: everything except transfers and
-    /// credit card payments. An expression, so it runs in the database. Rows with no category count.
+    /// The one rule for what income, expense and net cash flow figures count. Left out: every transfer in,
+    /// transfers out between the user's own accounts, and credit card payments. Cash withdrawals and
+    /// transfers to other people are spending, so they stay. Without pairing both legs of a transfer this
+    /// is a heuristic: an own-account move that Plaid labels "other transfer out" still counts.
+    /// An expression, so it runs in the database. Rows with no category count.
     /// </summary>
     public static readonly Expression<Func<Transaction, bool>> CountedInSummaries = transaction =>
         transaction.Category != TransferIn
-        && transaction.Category != TransferOut
+        && (transaction.Category != TransferOut
+            || transaction.Subcategory == CashWithdrawal
+            || transaction.Subcategory == OtherTransferOut)
         && transaction.Subcategory != CreditCardPayment;
+
+    /// <summary>
+    /// Plaid's v2 taxonomy, mapped onto the v1 set stored here. Teams created after December 2025 receive
+    /// v2. Keyed by detailed code; <see cref="FromPlaid"/> also maps a v2-only primary with no detailed code.
+    /// </summary>
+    private static readonly IReadOnlyDictionary<string, string> PlaidV2Detailed = new Dictionary<string, string>
+    {
+        ["INCOME_SALARY"] = "INCOME_WAGES",
+    };
+
+    private const string LoanDisbursements = "LOAN_DISBURSEMENTS";
+    private const string LoanProceeds = "TRANSFER_IN_CASH_ADVANCES_AND_LOANS";
+
+    /// <summary>
+    /// Translates a Plaid code pair from either taxonomy version into the v1 set. A loan or cash advance
+    /// becomes a transfer in, so borrowed money is never counted as income.
+    /// </summary>
+    public static (string? Primary, string? Detailed) FromPlaid(string? primary, string? detailed)
+    {
+        if (primary == LoanDisbursements)
+        {
+            return (TransferIn, LoanProceeds);
+        }
+
+        return (primary, detailed is not null && PlaidV2Detailed.TryGetValue(detailed, out var v1) ? v1 : detailed);
+    }
 }

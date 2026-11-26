@@ -221,7 +221,7 @@ public sealed class PlaidSyncService(
             row.Amount = -transaction.Amount;
 
             var category = TransactionCategorizer.Categorize(
-                transaction.CategoryPrimary, transaction.CategoryDetailed, transaction.MerchantName, transaction.Name);
+                transaction.CategoryPrimary, transaction.CategoryDetailed, transaction.MerchantName, transaction.Name, row.Amount);
             row.Category = category.Category;
             row.Subcategory = category.Subcategory;
         }

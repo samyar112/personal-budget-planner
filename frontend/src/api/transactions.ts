@@ -51,10 +51,11 @@ export async function fetchTransactions(options: {
 export type AccountSummary = { accountId: string; income: number; expenses: number; net: number };
 
 /**
- * Income, expenses and savings for a date range, per account and in total, computed by the server.
- * Transfers and credit card payments are left out, and the totals are the sum of the accounts.
+ * Income, expenses and net cash flow for a date range, per account and in total, computed by the server.
+ * Internal transfers and credit card payments are left out, and the totals are the sum of the accounts.
+ * Net cash flow is money left over, not money moved into savings. Refunds reduce expenses.
  */
-export type TransactionSummary = { income: number; expenses: number; savings: number; accounts: AccountSummary[] };
+export type TransactionSummary = { income: number; expenses: number; netCashFlow: number; accounts: AccountSummary[] };
 
 /** The caller's summary for an inclusive yyyy-MM-dd range. */
 export async function fetchSummary(range: { from: string; to: string }): Promise<TransactionSummary> {
