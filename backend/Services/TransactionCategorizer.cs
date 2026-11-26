@@ -11,15 +11,21 @@ public sealed record Categorization(string Category, string? Subcategory);
 /// </summary>
 public static class TransactionCategorizer
 {
-    private sealed record Rule(Regex Pattern, string Category, string? Subcategory);
+    private enum Direction { Any, In, Out }
+
+    private sealed record Rule(Regex Pattern, string Category, string? Subcategory, Direction Direction);
 
     // Ordered: the first match wins, so put specific words before general ones. Whole words only,
-    // so "RENT" does not match "CURRENT".
+    // so "RENT" does not match "CURRENT". Payroll comes before transfer, so "ACH TRANSFER PAYROLL" is income.
+    // Money sent to people and cash taken out get the subcategories summaries count as spending.
     private static readonly Rule[] Rules =
     [
-        Keyword("TRANSFER|ZELLE|VENMO|PAYMENT THANK YOU", TransactionCategory.TransferOut, "TRANSFER_OUT_ACCOUNT_TRANSFER"),
-        Keyword("PAYROLL|DIRECT DEP|SALARY", TransactionCategory.Income, "INCOME_WAGES"),
-        Keyword("SHELL|CHEVRON|EXXON|BP|FUEL|GAS STATION", TransactionCategory.Transportation, "TRANSPORTATION_GAS"),
+        Keyword("PAYROLL|DIRECT DEP|SALARY", TransactionCategory.Income, "INCOME_WAGES", Direction.In),
+        Keyword("ATM WITHDRAWAL|ATM W/D|CASH WITHDRAWAL", TransactionCategory.TransferOut, TransactionCategory.CashWithdrawal, Direction.Out),
+        Keyword("ZELLE|VENMO|CASH APP", TransactionCategory.TransferOut, TransactionCategory.OtherTransferOut, Direction.Out),
+        Keyword("TRANSFER|ZELLE|VENMO|CASH APP|PAYMENT THANK YOU", TransactionCategory.TransferIn, "TRANSFER_IN_ACCOUNT_TRANSFER", Direction.In),
+        Keyword("TRANSFER|PAYMENT THANK YOU", TransactionCategory.TransferOut, "TRANSFER_OUT_ACCOUNT_TRANSFER", Direction.Out),
+        Keyword(@"SHELL|CHEVRON|EXXON|BP OIL|BP PRODUCTS|BP#?\d+|FUEL|GAS STATION", TransactionCategory.Transportation, "TRANSPORTATION_GAS"),
         Keyword("UBER|LYFT|PARKING|TRANSIT", TransactionCategory.Transportation, null),
         Keyword("NETFLIX|NFLX|SPOTIFY|HULU|DISNEY|CINEMA|THEATER", TransactionCategory.Entertainment, null),
         Keyword("STARBUCKS|COFFEE|CAFE", TransactionCategory.FoodAndDrink, "FOOD_AND_DRINK_COFFEE"),
@@ -36,8 +42,10 @@ public static class TransactionCategorizer
         .Where(category => category != TransactionCategory.Other)
         .ToHashSet();
 
-    public static Categorization Categorize(string? plaidPrimary, string? plaidDetailed, string? merchant, string description)
+    /// <param name="amount">Ledger sign: positive is money in. Keyword rules for transfers and pay depend on it.</param>
+    public static Categorization Categorize(string? plaidPrimary, string? plaidDetailed, string? merchant, string description, decimal amount)
     {
+        (plaidPrimary, plaidDetailed) = TransactionCategory.FromPlaid(plaidPrimary, plaidDetailed);
         if (plaidPrimary is not null && PlaidPrimaries.Contains(plaidPrimary))
         {
             // A detailed code from a different primary is not trusted.
@@ -50,7 +58,7 @@ public static class TransactionCategorizer
         var text = $"{merchant} {description}";
         foreach (var rule in Rules)
         {
-            if (rule.Pattern.IsMatch(text))
+            if (Applies(rule.Direction, amount) && rule.Pattern.IsMatch(text))
             {
                 return new Categorization(rule.Category, rule.Subcategory);
             }
@@ -59,6 +67,13 @@ public static class TransactionCategorizer
         return new Categorization(TransactionCategory.Other, null);
     }
 
-    private static Rule Keyword(string alternatives, string category, string? subcategory) =>
-        new(new Regex($@"\b(?:{alternatives})\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled), category, subcategory);
+    private static bool Applies(Direction direction, decimal amount) => direction switch
+    {
+        Direction.In => amount > 0,
+        Direction.Out => amount < 0,
+        _ => true,
+    };
+
+    private static Rule Keyword(string alternatives, string category, string? subcategory, Direction direction = Direction.Any) =>
+        new(new Regex($@"\b(?:{alternatives})\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled), category, subcategory, direction);
 }
