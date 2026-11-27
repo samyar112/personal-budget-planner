@@ -7,6 +7,7 @@ using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace backend.Controllers;
 
@@ -17,7 +18,10 @@ namespace backend.Controllers;
 [ApiController]
 [Route("api/admin")]
 [Authorize(Policy = AdminExtensions.AdminPolicy)]
-public sealed class AdminController(AppDbContext db, AdminUserService adminUsers) : ControllerBase
+public sealed class AdminController(
+    AppDbContext db,
+    AdminUserService adminUsers,
+    IOptions<JwtOptions> jwtOptions) : ControllerBase
 {
     private const int MaxPageSize = 100;
 
@@ -70,6 +74,61 @@ public sealed class AdminController(AppDbContext db, AdminUserService adminUsers
             .ToList();
 
         return Ok(new AdminUserListResponse(items, page, pageSize, total));
+    }
+
+    /// <summary>
+    /// Logins, most recently seen first. <c>active=true</c> keeps those not ended and seen within one
+    /// access-token lifetime: activity is only observed at refresh, so that is the finest honest window.
+    /// </summary>
+    [HttpGet("sessions")]
+    [ProducesResponseType<UserSessionListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<UserSessionListResponse>> ListSessions(
+        [FromQuery] bool? active,
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+        var activeSince = DateTime.UtcNow.AddMinutes(-jwtOptions.Value.ExpiresMinutes);
+
+        var query = db.UserSessions.AsNoTracking();
+        if (active is { } wantActive)
+        {
+            query = wantActive
+                ? query.Where(session => session.EndedAt == null && session.LastSeenAt >= activeSince)
+                : query.Where(session => session.EndedAt != null || session.LastSeenAt < activeSince);
+        }
+
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query
+            .OrderByDescending(session => session.LastSeenAt)
+            .ThenBy(session => session.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(session => new
+            {
+                session.Id,
+                session.UserId,
+                session.User.Email,
+                session.User.Name,
+                session.LoginMethod,
+                session.StartedAt,
+                session.LastSeenAt,
+                session.EndedAt,
+            })
+            .ToListAsync(cancellationToken);
+
+        var items = rows
+            .Select(row => new UserSessionDto(
+                row.Id, row.UserId, row.Email, row.Name, row.LoginMethod.ToString(),
+                row.StartedAt, row.LastSeenAt, row.EndedAt,
+                IsActive: row.EndedAt == null && row.LastSeenAt >= activeSince))
+            .ToList();
+
+        return Ok(new UserSessionListResponse(items, page, pageSize, total));
     }
 
     /// <summary>

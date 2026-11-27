@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<AiRecommendation> AiRecommendations => Set<AiRecommendation>();
     public DbSet<ErrorLogEntry> ErrorLogEntries => Set<ErrorLogEntry>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -199,6 +200,18 @@ public class AppDbContext : DbContext
             entity.Property(entry => entry.StackTrace).HasMaxLength(8000);
             // The admin list is newest first, and the purge deletes by age.
             entity.HasIndex(entry => entry.OccurredAt);
+        });
+
+        modelBuilder.Entity<UserSession>(entity =>
+        {
+            entity.Property(session => session.LoginMethod).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(session => session.UserId);
+            // The admin list is most recently seen first, and "active" filters on it.
+            entity.HasIndex(session => session.LastSeenAt);
+            entity.HasOne(session => session.User)
+                .WithMany()
+                .HasForeignKey(session => session.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

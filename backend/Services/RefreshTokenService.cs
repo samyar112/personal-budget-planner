@@ -26,10 +26,20 @@ public sealed class RefreshTokenService(
 
     private readonly JwtOptions _options = jwtOptions.Value;
 
-    public async Task<IssuedRefreshToken> IssueAsync(User user, CancellationToken cancellationToken)
+    /// <summary>Starts a login: the first token of a new family, and the session row that shares its id.</summary>
+    public async Task<IssuedRefreshToken> IssueAsync(User user, LoginMethod method, CancellationToken cancellationToken)
     {
         var (entity, rawToken) = Create(user, Guid.NewGuid());
+        var now = DateTime.UtcNow;
         db.RefreshTokens.Add(entity);
+        db.UserSessions.Add(new UserSession
+        {
+            Id = entity.FamilyId,
+            UserId = user.Id,
+            LoginMethod = method,
+            StartedAt = now,
+            LastSeenAt = now,
+        });
         await db.SaveChangesAsync(cancellationToken);
 
         return new IssuedRefreshToken(rawToken, entity.ExpiresAt, entity.Id);
@@ -102,6 +112,14 @@ public sealed class RefreshTokenService(
         existing.RevokedAt = DateTime.UtcNow;
         existing.GraceExpiresAt = DateTime.UtcNow.AddSeconds(_options.RefreshGraceSeconds);
         existing.ReplacedByTokenId = replacement.Id;
+        // Only the winning rotation records activity; a grace-path refresh is the same moment from another tab.
+        // A login from before session tracking has no row and is simply not shown.
+        var session = await db.UserSessions.FindAsync([existing.FamilyId], cancellationToken);
+        if (session is not null)
+        {
+            session.LastSeenAt = DateTime.UtcNow;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
 
         db.RefreshTokens.Add(replacement);
@@ -124,7 +142,38 @@ public sealed class RefreshTokenService(
             token.GraceExpiresAt = null;
         }
 
+        var session = await db.UserSessions.FindAsync([familyId], cancellationToken);
+        if (session is { EndedAt: null })
+        {
+            session.EndedAt = now;
+        }
+
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Revokes every live refresh token of a user and ends their sessions. Does not save, so the caller's
+    /// own change (deactivation, password reset, Google claim) lands in the same save.
+    /// </summary>
+    public static async Task EndAllSessionsAsync(
+        AppDbContext db, Guid userId, DateTime now, CancellationToken cancellationToken)
+    {
+        var live = await db.RefreshTokens
+            .Where(token => token.UserId == userId && token.RevokedAt == null)
+            .ToListAsync(cancellationToken);
+        foreach (var token in live)
+        {
+            token.RevokedAt = now;
+            token.GraceExpiresAt = null;
+        }
+
+        var sessions = await db.UserSessions
+            .Where(session => session.UserId == userId && session.EndedAt == null)
+            .ToListAsync(cancellationToken);
+        foreach (var session in sessions)
+        {
+            session.EndedAt = now;
+        }
     }
 
     public async Task RevokeAsync(string? rawToken, CancellationToken cancellationToken)

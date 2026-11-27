@@ -126,14 +126,7 @@ public sealed class PasswordResetService(
         // Following the emailed link proves control of the mailbox.
         user.EmailVerifiedAt ??= now;
 
-        var sessions = await db.RefreshTokens
-            .Where(refresh => refresh.UserId == user.Id && refresh.RevokedAt == null)
-            .ToListAsync(cancellationToken);
-        foreach (var session in sessions)
-        {
-            session.RevokedAt = now;
-            session.GraceExpiresAt = null;
-        }
+        await RefreshTokenService.EndAllSessionsAsync(db, user.Id, now, cancellationToken);
 
         await db.SaveChangesAsync(cancellationToken);
         return ResetPasswordResult.Reset;
