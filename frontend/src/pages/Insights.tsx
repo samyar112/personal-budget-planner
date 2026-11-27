@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ApiError } from "../api/auth";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ApiError, fetchCurrentUser } from "../api/auth";
+import { openBillingPortal, startCheckout } from "../api/billing";
 import { generateTips, type AiTipsResponse, type RoadmapStep } from "../api/ai";
 import { formatMoney } from "../api/transactions";
 
@@ -8,7 +9,8 @@ type State =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; result: AiTipsResponse }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string }
+  | { status: "paywall" };
 
 /** "2028-05-01" to "May 2028", by splitting the string so no time zone can move the month. */
 function formatMonth(date: string): string {
@@ -49,14 +51,80 @@ function sourceLabel(result: AiTipsResponse): string {
  * payload shown on the privacy page. Rules choose each tip from the user's own figures, the AI rewords them, and
  * every number it writes is checked, with standard wording as the fallback.
  */
+/** Sends the browser to a Stripe-hosted page. Errors stay on this page. */
+const useStripeRedirect = (getUrl: () => Promise<string>) => {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const go = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      window.location.assign(await getUrl());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Something went wrong. Try again.");
+      setBusy(false);
+    }
+  };
+
+  return { busy, error, go };
+};
+
+/**
+ * Shown when the API answers 402 because the free trial has ended. The API enforces the gate; this card only
+ * explains it and opens Stripe Checkout (test mode).
+ */
+const Paywall = () => {
+  const checkout = useStripeRedirect(startCheckout);
+
+  return (
+    <div className="border rounded-3 p-3" role="region" aria-label="Upgrade">
+      <h5 className="mb-1">Your free trial has ended</h5>
+      <p className="card-section-sub mb-3">
+        Upgrade for <strong>$2.99/month</strong> to keep getting AI recommendations. Your accounts, transactions,
+        charts and health score stay available either way. Cancel any time.
+      </p>
+      <button
+        type="button"
+        className="btn btn-primary text-nav"
+        onClick={() => void checkout.go()}
+        disabled={checkout.busy}
+      >
+        {checkout.busy && <span className="spinner-border spinner-border-sm me-2" aria-hidden="true" />}
+        Upgrade with Stripe
+      </button>
+      <p className="small text-body-secondary mt-2 mb-0">Test mode: no real card is charged.</p>
+      {checkout.error && (
+        <p className="text-danger small mt-2 mb-0" role="alert">
+          {checkout.error}
+        </p>
+      )}
+    </div>
+  );
+};
+
 const Insights = () => {
   const [state, setState] = useState<State>({ status: "idle" });
+  const [subscribed, setSubscribed] = useState(false);
+  const [searchParams] = useSearchParams();
+  const checkoutResult = searchParams.get("checkout");
+  const portal = useStripeRedirect(openBillingPortal);
+
+  useEffect(() => {
+    fetchCurrentUser()
+      .then((me) => setSubscribed(me.subscribed))
+      .catch(() => setSubscribed(false));
+  }, []);
 
   const generate = async () => {
     setState({ status: "loading" });
     try {
       setState({ status: "ready", result: await generateTips() });
     } catch (err) {
+      if (err instanceof ApiError && err.status === 402) {
+        setState({ status: "paywall" });
+        return;
+      }
       setState({
         status: "error",
         message: err instanceof ApiError ? err.message : "Could not generate recommendations. Try again.",
@@ -79,6 +147,17 @@ const Insights = () => {
           </Link>
         </div>
       </div>
+
+      {checkoutResult === "success" && !subscribed && (
+        <div className="alert alert-success" role="status">
+          Payment received. Your subscription activates as soon as Stripe confirms it; refresh in a moment.
+        </div>
+      )}
+      {checkoutResult === "cancelled" && (
+        <div className="alert alert-secondary" role="status">
+          Checkout cancelled. You have not been charged.
+        </div>
+      )}
 
       <div className="card glass-card dashboard-card">
         <div className="card-body">
@@ -103,6 +182,25 @@ const Insights = () => {
             </button>
           </div>
 
+          {subscribed && (
+            <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+              <span className="badge text-bg-success">Subscribed</span>
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0"
+                onClick={() => void portal.go()}
+                disabled={portal.busy}
+              >
+                Manage subscription
+              </button>
+              {portal.error && (
+                <span className="text-danger small" role="alert">
+                  {portal.error}
+                </span>
+              )}
+            </div>
+          )}
+
           {state.status === "idle" && (
             <p className="card-section-sub mb-0">No recommendations yet. Press the button to get yours.</p>
           )}
@@ -112,6 +210,8 @@ const Insights = () => {
               Analysing your figures…
             </p>
           )}
+
+          {state.status === "paywall" && <Paywall />}
 
           {state.status === "error" && (
             <p className="text-danger mb-0" role="alert">

@@ -86,7 +86,9 @@ export async function generateTips(): Promise<AiTipsResponse> {
         ? "You have generated tips the maximum number of times today. Try again tomorrow."
         : response.status === 403
           ? "Verify your email to generate tips."
-          : "Could not generate tips. Try again.",
+          : response.status === 402
+            ? "Your free trial has ended. Upgrade to keep generating AI tips."
+            : "Could not generate tips. Try again.",
     response.status,
   );
 }

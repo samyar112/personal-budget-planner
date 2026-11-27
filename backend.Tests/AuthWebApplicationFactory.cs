@@ -66,6 +66,10 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
                 ["Plaid:Secret"] = "test-secret",
                 ["Plaid:Environment"] = "sandbox",
                 ["Plaid:TokenEncryptionKey"] = Convert.ToBase64String(new byte[32]),
+                // Stripe calls are faked below; the webhook secret is real so tests can sign events.
+                ["Stripe:SecretKey"] = "sk_test_fake",
+                ["Stripe:WebhookSecret"] = FakeBillingGateway.WebhookSecret,
+                ["Stripe:PriceId"] = "price_test",
             };
 
             foreach (var (key, value) in ExtraConfig)
@@ -112,6 +116,11 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
             services.AddSingleton<FakeGoogleTokenVerifier>();
             services.AddSingleton<IGoogleTokenVerifier>(provider => provider.GetRequiredService<FakeGoogleTokenVerifier>());
 
+            // No test may reach Stripe.
+            services.RemoveAll<IBillingGateway>();
+            services.AddSingleton<FakeBillingGateway>();
+            services.AddSingleton<IBillingGateway>(provider => provider.GetRequiredService<FakeBillingGateway>());
+
             // Stand-in for a ledger endpoint, which does not exist yet.
             services.AddControllers().AddApplicationPart(typeof(VerifiedOnlyProbeController).Assembly);
         });
@@ -124,6 +133,29 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
     public FakePlaidClient Plaid => Services.GetRequiredService<FakePlaidClient>();
 
     public FakeAdvisorModel Advisor => Services.GetRequiredService<FakeAdvisorModel>();
+
+    public FakeBillingGateway Billing => Services.GetRequiredService<FakeBillingGateway>();
+}
+
+/// <summary>Stands in for Stripe. Each customer id is new; every call is recorded.</summary>
+public sealed class FakeBillingGateway : IBillingGateway
+{
+    public const string WebhookSecret = "whsec_test_secret";
+
+    public System.Collections.Concurrent.ConcurrentQueue<string> CustomersCreated { get; } = new();
+
+    public Task<string> CreateCustomerAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var id = $"cus_{Guid.NewGuid():N}";
+        CustomersCreated.Enqueue(id);
+        return Task.FromResult(id);
+    }
+
+    public Task<string> CreateCheckoutUrlAsync(string customerId, Guid userId, CancellationToken cancellationToken) =>
+        Task.FromResult($"https://checkout.stripe.test/{customerId}");
+
+    public Task<string> CreatePortalUrlAsync(string customerId, CancellationToken cancellationToken) =>
+        Task.FromResult($"https://billing.stripe.test/{customerId}");
 }
 
 /// <summary>

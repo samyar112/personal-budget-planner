@@ -48,6 +48,12 @@
   "AiAdvisor": {
     "ApiKey": "OPENROUTER_KEY_FROM_openrouter.ai/keys_OR_EMPTY_FOR_TEMPLATE_TIPS"
   },
+  "Stripe": {
+    "SecretKey": "sk_test_FROM_STRIPE_DASHBOARD_OR_EMPTY_TO_DISABLE_PAYMENTS",
+    "WebhookSecret": "whsec_PRINTED_BY_stripe_listen",
+    "PriceId": "price_OF_THE_2.99_MONTHLY_PRICE",
+    "FrontendBaseUrl": "http://localhost:5173"
+  },
   "Cors": {
     "AllowedOrigins": [
       "http://localhost:5173",

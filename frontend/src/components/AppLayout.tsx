@@ -55,12 +55,14 @@ const AppLayout = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState("");
+  const [trialDaysRemaining, setTrialDaysRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     fetchCurrentUser()
       .then((me) => {
         setIsAdmin(me.role === "Admin");
         setUnverifiedEmail(me.emailVerified ? null : me.email);
+        setTrialDaysRemaining(me.subscribed ? null : me.trialDaysRemaining);
       })
       .catch(() => setUnverifiedEmail(null));
   }, []);
@@ -206,6 +208,22 @@ const AppLayout = () => {
                 Resend email
               </button>
               {resendStatus && <span className="w-100 small">{resendStatus}</span>}
+            </div>
+          )}
+
+          {trialDaysRemaining !== null && (
+            <div
+              className={`alert ${trialDaysRemaining > 0 ? "alert-info" : "alert-warning"} d-flex flex-wrap align-items-center gap-2`}
+              role="status"
+            >
+              <span>
+                {trialDaysRemaining > 0
+                  ? `${trialDaysRemaining} ${trialDaysRemaining === 1 ? "day" : "days"} left in your free trial.`
+                  : "Your free trial has ended. AI recommendations are locked; everything else stays available."}
+              </span>
+              <Link to="/insights" className="btn btn-sm btn-outline-dark ms-auto">
+                {trialDaysRemaining > 0 ? "Upgrade for $2.99/month" : "Upgrade"}
+              </Link>
             </div>
           )}
 
