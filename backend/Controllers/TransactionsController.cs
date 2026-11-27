@@ -47,6 +47,7 @@ public sealed class TransactionsController(AppDbContext db, HealthScoreService h
         var counted = db.Transactions
             .AsNoTracking()
             .Where(transaction => transaction.UserId == userId)
+            .Where(transaction => transaction.Account.IncludeInTotals)
             .Where(TransactionCategory.CountedInSummaries);
         if (from is { } start)
         {
@@ -77,7 +78,7 @@ public sealed class TransactionsController(AppDbContext db, HealthScoreService h
 
         var accountIds = await db.Accounts
             .AsNoTracking()
-            .Where(account => account.UserId == userId)
+            .Where(account => account.UserId == userId && account.IncludeInTotals)
             .OrderBy(account => account.CreatedAt)
             .Select(account => account.Id)
             .ToListAsync(cancellationToken);
@@ -301,7 +302,9 @@ public sealed class TransactionsController(AppDbContext db, HealthScoreService h
 
     /// <summary>
     /// The caller's rows that summaries count, within the dates and, when given, one account. The account
-    /// must be the caller's: someone else's id is 404, the same as one that does not exist.
+    /// must be the caller's: someone else's id is 404, the same as one that does not exist. Without an account,
+    /// statement accounts (<see cref="Account.IncludeInTotals"/> false) are left out; naming one is how the
+    /// statement view reuses these figures.
     /// </summary>
     private async Task<(IQueryable<Transaction>? Rows, ActionResult? Error)> CountedRowsAsync(
         DateOnly? from, DateOnly? to, Guid? accountId, CancellationToken cancellationToken)
@@ -329,6 +332,10 @@ public sealed class TransactionsController(AppDbContext db, HealthScoreService h
             }
 
             rows = rows.Where(transaction => transaction.AccountId == account);
+        }
+        else
+        {
+            rows = rows.Where(transaction => transaction.Account.IncludeInTotals);
         }
 
         if (from is { } start)
@@ -371,9 +378,11 @@ public sealed class TransactionsController(AppDbContext db, HealthScoreService h
             return Unauthorized();
         }
 
+        // Statement rows have their own view until they are merged.
         var query = db.Transactions
             .AsNoTracking()
-            .Where(transaction => transaction.UserId == userId);
+            .Where(transaction => transaction.UserId == userId)
+            .Where(transaction => transaction.Account.IncludeInTotals);
         if (from is { } start)
         {
             query = query.Where(transaction => transaction.Date >= start);

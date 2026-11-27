@@ -26,9 +26,10 @@ public sealed partial class HealthScoreService(AppDbContext db)
 
     public async Task<HealthScoreResponse> ComputeAsync(Guid userId, DateOnly today, CancellationToken cancellationToken)
     {
+        // Statement accounts stay out until merged (see Account.IncludeInTotals).
         var accounts = await db.Accounts
             .AsNoTracking()
-            .Where(account => account.UserId == userId)
+            .Where(account => account.UserId == userId && account.IncludeInTotals)
             .Select(account => new { account.Type, account.CurrentBalance, account.CreditLimit })
             .ToListAsync(cancellationToken);
 
@@ -37,6 +38,7 @@ public sealed partial class HealthScoreService(AppDbContext db)
             .AsNoTracking()
             .Where(transaction => transaction.UserId == userId)
             .Where(TransactionCategory.CountedInSummaries)
+            .Where(transaction => transaction.Account.IncludeInTotals)
             .Where(transaction => transaction.Date >= windowStart && transaction.Date <= today)
             .ToListAsync(cancellationToken);
 

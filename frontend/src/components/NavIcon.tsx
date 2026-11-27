@@ -10,6 +10,7 @@ const PATHS = {
   ),
   accounts: <path d="M12 3 21 8H3l9-5ZM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18" />,
   transactions: <path d="M7 4 3 8l4 4M3 8h14M17 12l4 4-4 4M21 16H7" />,
+  statements: <path d="M6 3h8l4 4v14H6V3ZM14 3v4h4M9 12h6M9 16h6" />,
   bills: <path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2V3ZM9 8h6M9 12h6M9 16h3" />,
   spending: <path d="M21 12a9 9 0 1 1-9-9v9h9ZM15 3.5A9 9 0 0 1 20.5 9H15V3.5Z" />,
   insights: (
