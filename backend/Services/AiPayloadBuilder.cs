@@ -46,9 +46,10 @@ public sealed class AiPayloadBuilder(AppDbContext db)
             .Select(candidate => new { candidate.Name, candidate.Email })
             .SingleAsync(cancellationToken);
 
+        // Statement accounts stay out until merged (see Account.IncludeInTotals).
         var accounts = await db.Accounts
             .AsNoTracking()
-            .Where(account => account.UserId == userId)
+            .Where(account => account.UserId == userId && account.IncludeInTotals)
             .ToListAsync(cancellationToken);
 
         var windowStart = today.AddMonths(-RecurringWindowMonths);
@@ -56,6 +57,7 @@ public sealed class AiPayloadBuilder(AppDbContext db)
             .AsNoTracking()
             .Where(transaction => transaction.UserId == userId)
             .Where(TransactionCategory.CountedInSummaries)
+            .Where(transaction => transaction.Account.IncludeInTotals)
             .Where(transaction => transaction.Date >= windowStart && transaction.Date <= today)
             .ToListAsync(cancellationToken);
 

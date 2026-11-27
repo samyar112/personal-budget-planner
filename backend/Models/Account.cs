@@ -45,5 +45,12 @@ public class Account
     /// </summary>
     public decimal? CreditLimit { get; set; }
 
+    /// <summary>
+    /// Whether this account's rows count in totals, charts, recurring detection, the health score and the AI
+    /// payload. False for PDF statement accounts, so a parse error or a statement for an account Plaid already
+    /// syncs cannot corrupt or double-count those figures. A post-V1 merge sets it to true.
+    /// </summary>
+    public bool IncludeInTotals { get; set; } = true;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

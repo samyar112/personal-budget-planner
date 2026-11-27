@@ -42,6 +42,9 @@ namespace backend.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<bool>("IncludeInTotals")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Institution")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");

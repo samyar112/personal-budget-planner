@@ -18,6 +18,7 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/home", label: "Dashboard", icon: "dashboard" },
       { to: "/accounts", label: "Accounts", icon: "accounts" },
       { to: "/transactions", label: "Transactions", icon: "transactions" },
+      { to: "/statements", label: "Statements", icon: "statements" },
     ],
   },
   { title: "Planning", items: [{ to: "/bills", label: "Bills", icon: "bills" }] },

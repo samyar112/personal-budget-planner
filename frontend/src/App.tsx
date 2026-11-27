@@ -10,6 +10,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminUsers from "./pages/AdminUsers";
 import Accounts from "./pages/Accounts";
 import Transactions from "./pages/Transactions";
+import Statements from "./pages/Statements";
 import Bills from "./pages/Bills";
 import Insights from "./pages/Insights";
 import Privacy from "./pages/Privacy";
@@ -80,6 +81,7 @@ const App = () => {
           <Route path="/home" element={<Home />} />
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/transactions" element={<Transactions />} />
+          <Route path="/statements" element={<Statements />} />
           <Route path="/bills" element={<Bills />} />
           <Route
             path="/spending"
