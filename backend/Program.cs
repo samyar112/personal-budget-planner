@@ -41,6 +41,8 @@ builder.Services.AddDbContext<backend.Data.AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<DbExceptionHandler>();
 builder.Services.AddOpenApi();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddAuthSecurity(builder.Configuration);
@@ -157,6 +159,8 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Outermost, so an exception anywhere below is logged and answered with a generic 500.
+app.UseExceptionHandler();
 app.UseForwardedHeaders();
 app.UseSecurityHeaders();
 
