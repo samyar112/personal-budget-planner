@@ -77,6 +77,41 @@ export class ApiError extends Error {
   }
 }
 
+export const NETWORK_ERROR_MESSAGE = "Can't reach VaultBudget. Check your connection and try again.";
+const SERVER_ERROR_MESSAGE = "Something went wrong on our side. Try again shortly.";
+
+/**
+ * fetch that turns a network failure (API down, offline, CORS refusal) into an ApiError with code "network",
+ * so no caller mistakes it for a bad password or shows a raw TypeError.
+ */
+async function send(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch {
+    throw new ApiError(NETWORK_ERROR_MESSAGE, 0, {}, "network");
+  }
+}
+
+/**
+ * An unhandled server exception answers 500 with only a traceId (see the A7 error log). Handled failures use
+ * other statuses (502 from Plaid, 503 when payments are off) and keep their own messages. The short reference
+ * lets a user's report be matched to its error log row.
+ */
+function serverErrorFrom(body: unknown): ApiError {
+  const traceId =
+    typeof body === "object" && body !== null && typeof (body as { traceId?: unknown }).traceId === "string"
+      ? (body as { traceId: string }).traceId
+      : null;
+  // W3C ids look like 00-<32 hex trace>-<16 hex span>-00; 12 hex of the trace part is enough to find the row.
+  const reference = traceId ? (traceId.split("-")[1] ?? traceId).slice(0, 12) : null;
+  return new ApiError(
+    reference ? `${SERVER_ERROR_MESSAGE} Reference: ${reference}` : SERVER_ERROR_MESSAGE,
+    500,
+    {},
+    "server",
+  );
+}
+
 async function parseErrorBody(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -86,6 +121,10 @@ async function parseErrorBody(response: Response): Promise<unknown> {
 }
 
 function throwApiError(response: Response, body: unknown): never {
+  if (response.status === 500) {
+    throw serverErrorFrom(body);
+  }
+
   const messageFromBody =
     typeof body === "object" &&
     body !== null &&
@@ -166,7 +205,7 @@ export async function refreshSession(): Promise<boolean> {
   }
 
   refreshInFlight = (async () => {
-    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+    const response = await send(`${API_BASE_URL}/api/auth/refresh`, {
       method: "POST",
       credentials: "include",
     });
@@ -183,10 +222,14 @@ export async function refreshSession(): Promise<boolean> {
  */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
-  const response = await fetch(url, {
+  const response = await send(url, {
     ...init,
     credentials: "include",
   });
+
+  if (response.status === 500) {
+    throw serverErrorFrom(await parseErrorBody(response));
+  }
 
   if (response.status !== 401 || !shouldAttemptRefresh(path)) {
     return response;
@@ -197,15 +240,20 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
     return response;
   }
 
-  return fetch(url, {
+  const retried = await send(url, {
     ...init,
     credentials: "include",
   });
+  if (retried.status === 500) {
+    throw serverErrorFrom(await parseErrorBody(retried));
+  }
+
+  return retried;
 }
 
 /** Registers a new email/password account. */
 export async function registerUser(payload: RegisterPayload): Promise<RegisterResult> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+  const response = await send(`${API_BASE_URL}/api/auth/register`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -226,7 +274,7 @@ export async function registerUser(payload: RegisterPayload): Promise<RegisterRe
  * otherwise the access JWT + opaque refresh are set as HttpOnly cookies right away.
  */
 export async function loginUser(payload: LoginPayload): Promise<LoginOutcome> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+  const response = await send(`${API_BASE_URL}/api/auth/login`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -251,7 +299,7 @@ export async function loginUser(payload: LoginPayload): Promise<LoginOutcome> {
  * HttpOnly cookies; no emailed code follows because Google already authenticated the person.
  */
 export async function googleSignIn(idToken: string): Promise<LoginResult> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/google`, {
+  const response = await send(`${API_BASE_URL}/api/auth/google`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -277,7 +325,7 @@ export async function googleSignIn(idToken: string): Promise<LoginResult> {
 
 /** Submits the emailed code. On success the HttpOnly cookies are set. */
 export async function verifyLoginCode(challengeId: string, code: string): Promise<LoginResult> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login/verify-code`, {
+  const response = await send(`${API_BASE_URL}/api/auth/login/verify-code`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -295,7 +343,7 @@ export async function verifyLoginCode(challengeId: string, code: string): Promis
 
 /** Emails a fresh code for the open challenge. */
 export async function resendLoginCode(challengeId: string): Promise<LoginChallenge> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login/resend-code`, {
+  const response = await send(`${API_BASE_URL}/api/auth/login/resend-code`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -313,7 +361,7 @@ export async function resendLoginCode(challengeId: string): Promise<LoginChallen
 
 /** Clears auth cookies and revokes the refresh token server-side. */
 export async function logoutUser(): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/logout`, {
+  const response = await send(`${API_BASE_URL}/api/auth/logout`, {
     method: "POST",
     credentials: "include",
   });
@@ -347,7 +395,7 @@ export async function checkIdleSession(): Promise<MeResult | null> {
 
 /** Consumes the emailed verification token. Rejects with code "expired" or "invalid". */
 export async function verifyEmail(token: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/verify-email`, {
+  const response = await send(`${API_BASE_URL}/api/auth/verify-email`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -371,7 +419,7 @@ export async function verifyEmail(token: string): Promise<void> {
 
 /** Asks for a fresh verification email. The API answers the same for every address. */
 export async function resendVerification(email: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/resend-verification`, {
+  const response = await send(`${API_BASE_URL}/api/auth/resend-verification`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -393,7 +441,7 @@ export async function resendVerification(email: string): Promise<void> {
 
 /** Asks for a password-reset email. The API answers the same for every address. */
 export async function requestPasswordReset(email: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/forgot-password`, {
+  const response = await send(`${API_BASE_URL}/api/auth/forgot-password`, {
     method: "POST",
     credentials: "include",
     headers: {
@@ -415,7 +463,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
 /** Sets a new password from the emailed token. Rejects with code "expired" or "invalid". */
 export async function resetPassword(token: string, newPassword: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+  const response = await send(`${API_BASE_URL}/api/auth/reset-password`, {
     method: "POST",
     credentials: "include",
     headers: {
