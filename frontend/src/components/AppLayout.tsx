@@ -5,6 +5,7 @@ import AmbientBackground from "./AmbientBackground";
 import BrandLogo from "./BrandLogo";
 import BrandName, { clearAuthSession } from "./BrandName";
 import NavIcon, { type NavIconName } from "./NavIcon";
+import useIdleSignOut from "./useIdleSignOut";
 import "../pages/Home.css";
 import "./AppLayout.css";
 
@@ -57,6 +58,8 @@ const AppLayout = () => {
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [resendStatus, setResendStatus] = useState("");
   const [trialDaysRemaining, setTrialDaysRemaining] = useState<number | null>(null);
+
+  useIdleSignOut();
 
   useEffect(() => {
     fetchCurrentUser()

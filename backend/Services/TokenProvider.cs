@@ -17,9 +17,12 @@ public sealed class TokenProvider(IOptions<JwtOptions> jwtOptions)
     public const string EmailVerifiedClaim = "email_verified";
     public const string RoleClaim = "role";
 
+    /// <summary>The login this token belongs to (the refresh-token family), so requests can record activity on it.</summary>
+    public const string SessionIdClaim = "sid";
+
     private readonly JwtOptions _options = jwtOptions.Value;
 
-    public TokenResult Create(User user)
+    public TokenResult Create(User user, Guid sessionId)
     {
         if (string.IsNullOrWhiteSpace(_options.Key) || _options.Key.Length < 32)
         {
@@ -35,6 +38,7 @@ public sealed class TokenProvider(IOptions<JwtOptions> jwtOptions)
             new(JwtRegisteredClaimNames.Name, user.Name),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(RoleClaim, user.Role.ToString()),
+            new(SessionIdClaim, sessionId.ToString()),
         };
 
         // Read by the VerifiedEmail policy. Stale until the next refresh after verifying.

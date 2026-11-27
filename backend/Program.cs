@@ -60,6 +60,9 @@ builder.Services
     .Validate(
         options => !string.IsNullOrWhiteSpace(options.Key) && options.Key.Length >= 32,
         "Jwt:Key must be at least 32 characters. Set it in appsettings.Development.json.")
+    .Validate(
+        options => options.IdleTimeoutMinutes >= options.ExpiresMinutes,
+        "Jwt:IdleTimeoutMinutes must not be shorter than Jwt:ExpiresMinutes, or an access token could outlive an idle session.")
     .ValidateOnStart();
 
 builder.Services.AddSingleton<TokenProvider>();
@@ -134,6 +137,26 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
                 if (active != true)
                 {
                     context.Fail("Account is inactive.");
+                    return;
+                }
+
+                // Activity for the idle timeout. A failed write must not refuse an otherwise valid request.
+                // A tab asking whether the session went idle is not activity, or checking would prevent sign-out.
+                // The header can only make the caller's own session less alive, so trusting it is safe.
+                var sessionClaim = context.Principal?.FindFirstValue(TokenProvider.SessionIdClaim);
+                var isIdleCheck = context.Request.Headers.ContainsKey(RefreshTokenService.IdleCheckHeader);
+                if (!isIdleCheck && Guid.TryParse(sessionClaim, out var sessionId))
+                {
+                    try
+                    {
+                        await context.HttpContext.RequestServices.GetRequiredService<RefreshTokenService>()
+                            .TouchAsync(sessionId, DateTime.UtcNow, context.HttpContext.RequestAborted);
+                    }
+                    catch (Exception exception) when (exception is DbUpdateException or OperationCanceledException)
+                    {
+                        context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
+                            .LogWarning(exception, "Could not record session activity");
+                    }
                 }
             },
         };

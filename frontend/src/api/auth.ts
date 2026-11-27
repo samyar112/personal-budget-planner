@@ -49,6 +49,8 @@ export type MeResult = {
   trialDaysRemaining: number | null;
   /** True while Stripe reports the subscription active. Set only by the webhook, never by returning from Checkout. */
   subscribed: boolean;
+  /** ISO time this login is signed out if nothing happens. Moves forward with activity in any tab. */
+  idleExpiresAt: string | null;
 };
 
 export type ApiFieldErrors = Partial<
@@ -332,6 +334,15 @@ export async function fetchCurrentUser(): Promise<MeResult> {
   }
 
   throwApiError(response, await parseErrorBody(response));
+}
+
+/**
+ * Asks whether this login has gone idle, without counting the question as activity. Null means the
+ * session is gone: the server refused it, so the caller should sign out.
+ */
+export async function checkIdleSession(): Promise<MeResult | null> {
+  const response = await apiFetch("/api/auth/me", { headers: { "X-Idle-Check": "1" } });
+  return response.ok ? ((await response.json()) as MeResult) : null;
 }
 
 /** Consumes the emailed verification token. Rejects with code "expired" or "invalid". */

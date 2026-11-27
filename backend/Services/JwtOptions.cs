@@ -20,4 +20,10 @@ public sealed class JwtOptions
     /// (covers multi-tab / in-flight twin refresh).
     /// </summary>
     public int RefreshGraceSeconds { get; set; } = 20;
+
+    /// <summary>
+    /// A login with no activity for this long cannot be refreshed. Never shorter than the access-token lifetime,
+    /// so an access token always expires before an idle session could be revived by it.
+    /// </summary>
+    public int IdleTimeoutMinutes { get; set; } = 15;
 }

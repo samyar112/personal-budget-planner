@@ -359,8 +359,8 @@ public sealed class AuthController(
             return StatusCode(StatusCodes.Status403Forbidden, new { message = DeactivatedMessage });
         }
 
-        var access = tokenProvider.Create(user);
         var refresh = await refreshTokenService.IssueAsync(user, method, cancellationToken);
+        var access = tokenProvider.Create(user, refresh.SessionId);
         WriteAuthCookies(access, refresh);
 
         return Ok(new LoginResponse(access.ExpiresAt, user.Email, user.Name));
@@ -444,11 +444,21 @@ public sealed class AuthController(
             return Unauthorized();
         }
 
+        // Each tab asks this before signing out, so activity in another tab or window keeps them all signed in.
+        DateTime? idleExpiresAt = null;
+        if (Guid.TryParse(User.FindFirstValue(TokenProvider.SessionIdClaim), out var sessionId)
+            && await db.UserSessions.AsNoTracking().FirstOrDefaultAsync(
+                session => session.Id == sessionId, cancellationToken) is { EndedAt: null } session)
+        {
+            idleExpiresAt = refreshTokenService.IdleExpiresAt(session);
+        }
+
         return Ok(new MeResponse(user.Id, user.Email, user.Name, user.EmailVerifiedAt is not null,
             user.Role.ToString(),
             Trial.EndsAt(user),
             Trial.DaysRemaining(user, DateTime.UtcNow),
-            Trial.IsSubscribed(user)));
+            Trial.IsSubscribed(user),
+            idleExpiresAt));
     }
 
     /// <summary>
