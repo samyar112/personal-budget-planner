@@ -50,6 +50,8 @@ public class AuthWebApplicationFactory : WebApplicationFactory<Program>
                 ["Jwt:ExpiresMinutes"] = "60",
                 ["Jwt:RefreshExpiresDays"] = "7",
                 ["Jwt:RefreshGraceSeconds"] = "20",
+                // Idle window may not be shorter than the 60-minute access token above.
+                ["Jwt:IdleTimeoutMinutes"] = "60",
                 // High default so normal auth tests do not trip IP rate limiting.
                 ["AuthSecurity:LoginPermitLimit"] = "1000",
                 ["AuthSecurity:LoginWindowSeconds"] = "60",

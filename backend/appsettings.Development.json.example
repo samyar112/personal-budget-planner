@@ -12,9 +12,10 @@
     "Key": "REPLACE_WITH_openssl_rand_-base64_48_OUTPUT",
     "Issuer": "VaultBudget",
     "Audience": "VaultBudget",
-    "ExpiresMinutes": 60,
+    "ExpiresMinutes": 15,
     "RefreshExpiresDays": 7,
-    "RefreshGraceSeconds": 20
+    "RefreshGraceSeconds": 20,
+    "IdleTimeoutMinutes": 15
   },
   "AuthSecurity": {
     "LoginPermitLimit": 10,

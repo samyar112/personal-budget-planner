@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import BrandName, { AUTH_USER_STORAGE_KEY, BRAND_NAME } from "../components/BrandName";
 import AmbientBackground from "../components/AmbientBackground";
 import GoogleSignInButton from "../components/GoogleSignInButton";
@@ -101,6 +101,11 @@ const features = [
  */
 const Landing = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  /** Why the user was sent here, e.g. idle sign-out. Hidden once an error or success message shows. */
+  const [notice] = useState<string>(
+    () => (location.state as { notice?: string } | null)?.notice ?? "",
+  );
 
   const [isLogin, setIsLogin] = useState(true);
   /** Set after a correct password when a login code was emailed; no cookies exist yet. */
@@ -568,6 +573,12 @@ const Landing = () => {
                       </ul>
                     )}
                   </div>
+
+                  {notice && !error && !successMessage && (
+                    <div className="alert alert-info py-2 mb-3" role="status">
+                      {notice}
+                    </div>
+                  )}
 
                   {successMessage && (
                     <div className="alert alert-success py-2 mb-3" role="status">

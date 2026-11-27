@@ -7,7 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace backend.Services;
 
-public sealed record IssuedRefreshToken(string RawToken, DateTime ExpiresAt, Guid TokenId);
+public sealed record IssuedRefreshToken(string RawToken, DateTime ExpiresAt, Guid TokenId, Guid SessionId);
 
 public sealed record RefreshOutcome(
     TokenResult AccessToken,
@@ -42,7 +42,7 @@ public sealed class RefreshTokenService(
         });
         await db.SaveChangesAsync(cancellationToken);
 
-        return new IssuedRefreshToken(rawToken, entity.ExpiresAt, entity.Id);
+        return new IssuedRefreshToken(rawToken, entity.ExpiresAt, entity.Id, entity.FamilyId);
     }
 
     /// <summary>
@@ -85,7 +85,15 @@ public sealed class RefreshTokenService(
             return null;
         }
 
-        var access = tokenProvider.Create(existing.User);
+        // Idle past the window, or a login with no session row (issued before sessions existed): sign in again.
+        var session = await db.UserSessions.FindAsync([existing.FamilyId], cancellationToken);
+        if (session is null || IsIdle(session, DateTime.UtcNow))
+        {
+            await RevokeFamilyAsync(existing.FamilyId, cancellationToken);
+            return null;
+        }
+
+        var access = tokenProvider.Create(existing.User, existing.FamilyId);
 
         if (existing.RevokedAt is not null)
         {
@@ -113,12 +121,7 @@ public sealed class RefreshTokenService(
         existing.GraceExpiresAt = DateTime.UtcNow.AddSeconds(_options.RefreshGraceSeconds);
         existing.ReplacedByTokenId = replacement.Id;
         // Only the winning rotation records activity; a grace-path refresh is the same moment from another tab.
-        // A login from before session tracking has no row and is simply not shown.
-        var session = await db.UserSessions.FindAsync([existing.FamilyId], cancellationToken);
-        if (session is not null)
-        {
-            session.LastSeenAt = DateTime.UtcNow;
-        }
+        session.LastSeenAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync(cancellationToken);
 
@@ -127,7 +130,7 @@ public sealed class RefreshTokenService(
 
         return new RefreshOutcome(
             access,
-            new IssuedRefreshToken(replacementRaw, replacement.ExpiresAt, replacement.Id));
+            new IssuedRefreshToken(replacementRaw, replacement.ExpiresAt, replacement.Id, replacement.FamilyId));
     }
 
     private async Task RevokeFamilyAsync(Guid familyId, CancellationToken cancellationToken)
@@ -150,6 +153,37 @@ public sealed class RefreshTokenService(
 
         await db.SaveChangesAsync(cancellationToken);
     }
+
+    public bool IsIdle(UserSession session, DateTime now) =>
+        now - session.LastSeenAt >= TimeSpan.FromMinutes(_options.IdleTimeoutMinutes);
+
+    public DateTime IdleExpiresAt(UserSession session) =>
+        session.LastSeenAt.AddMinutes(_options.IdleTimeoutMinutes);
+
+    /// <summary>
+    /// Records activity on a session from an authenticated request. Writes at most once a minute per session,
+    /// so an active user costs one small update a minute, not one per request. Ended sessions are left alone,
+    /// and so are idle ones: a request must not revive a session that the next refresh is about to refuse.
+    /// </summary>
+    public async Task TouchAsync(Guid sessionId, DateTime now, CancellationToken cancellationToken)
+    {
+        var session = await db.UserSessions.FindAsync([sessionId], cancellationToken);
+        if (session is null
+            || session.EndedAt is not null
+            || now - session.LastSeenAt < TouchInterval
+            || IsIdle(session, now))
+        {
+            return;
+        }
+
+        session.LastSeenAt = now;
+        await db.SaveChangesAsync(cancellationToken);
+    }
+
+    public static readonly TimeSpan TouchInterval = TimeSpan.FromMinutes(1);
+
+    /// <summary>Sent by a tab checking for idle sign-out; such a request does not count as activity.</summary>
+    public const string IdleCheckHeader = "X-Idle-Check";
 
     /// <summary>
     /// Revokes every live refresh token of a user and ends their sessions. Does not save, so the caller's

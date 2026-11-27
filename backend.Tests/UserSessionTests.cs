@@ -72,8 +72,8 @@ public sealed class UserSessionTests : IClassFixture<AuthWebApplicationFactory>
     {
         var (userId, email) = await SeedAsync(_factory, verified: false);
         var client = await SignedInAsync(_factory, email);
-        var hourAgo = DateTime.UtcNow.AddHours(-1);
-        await UpdateSessionsAsync(_factory, userId, session => session.LastSeenAt = hourAgo);
+        var halfHourAgo = DateTime.UtcNow.AddMinutes(-30); // inside the 60-minute test idle window
+        await UpdateSessionsAsync(_factory, userId, session => session.LastSeenAt = halfHourAgo);
 
         var refresh = await client.PostAsync("/api/auth/refresh", null);
 
