@@ -36,7 +36,10 @@ public sealed record MeResponse(
     string Email,
     string Name,
     bool EmailVerified,
-    string Role);
+    string Role,
+    DateTime? TrialEndsAt,
+    int? TrialDaysRemaining,
+    bool Subscribed);
 
 /// <summary>The raw token from the emailed link. Never logged or stored.</summary>
 public sealed record VerifyEmailRequest(string Token);

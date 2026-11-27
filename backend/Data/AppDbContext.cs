@@ -24,6 +24,19 @@ public class AppDbContext : DbContext
             .HasIndex(user => user.Email)
             .IsUnique();
 
+        // Webhooks find the user by customer id.
+        modelBuilder.Entity<User>()
+            .HasIndex(user => user.StripeCustomerId)
+            .IsUnique();
+
+        modelBuilder.Entity<User>()
+            .Property(user => user.StripeCustomerId)
+            .HasMaxLength(255);
+
+        modelBuilder.Entity<User>()
+            .Property(user => user.SubscriptionStatus)
+            .HasMaxLength(32);
+
         modelBuilder.Entity<User>()
             .Property(user => user.Role)
             .HasConversion<string>()

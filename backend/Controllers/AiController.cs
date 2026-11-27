@@ -1,10 +1,12 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using backend.Data;
 using backend.DTOs;
 using backend.Extensions;
 using backend.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers;
 
@@ -12,7 +14,7 @@ namespace backend.Controllers;
 [ApiController]
 [Route("api/ai")]
 [Authorize(Policy = AuthSecurityExtensions.VerifiedEmailPolicy)]
-public sealed class AiController(AiPayloadBuilder payloadBuilder, AiTipsService tipsService) : ControllerBase
+public sealed class AiController(AppDbContext db, AiPayloadBuilder payloadBuilder, AiTipsService tipsService) : ControllerBase
 {
     /// <summary>
     /// The payload exactly as it would be sent, and the privacy report about it. Nothing is sent to any AI
@@ -42,12 +44,14 @@ public sealed class AiController(AiPayloadBuilder payloadBuilder, AiTipsService 
     /// <summary>
     /// Sends the previewed payload for tips. <c>Consent</c> must be true: this press is the user's agreement to
     /// send it. Refused with 422 when the privacy check finds anything, so nothing leaves the API; 429 past the
-    /// daily limit. A model that is off, down or wrong still returns 200 with template tips.
+    /// daily limit; 402 once the free trial has ended without a subscription. A model that is off, down or wrong still returns 200
+    /// with template tips.
     /// </summary>
     [HttpPost("tips")]
     [ProducesResponseType<AiTipsResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status402PaymentRequired)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
@@ -65,6 +69,20 @@ public sealed class AiController(AiPayloadBuilder payloadBuilder, AiTipsService 
         {
             ModelState.AddModelError(nameof(request.Consent), "Consent is required to send the payload.");
             return ValidationProblem(ModelState);
+        }
+
+        // The AI call is the one feature with a per-request cost, so the trial is enforced here, not only in the UI.
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
+        if (!Trial.HasAiAccess(user, DateTime.UtcNow))
+        {
+            return Problem(
+                "Your free trial has ended. Upgrade to keep generating AI tips.",
+                statusCode: StatusCodes.Status402PaymentRequired);
         }
 
         Response.Headers.CacheControl = "no-store";

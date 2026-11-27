@@ -43,6 +43,12 @@ export type MeResult = {
   emailVerified: boolean;
   /** For showing or hiding admin navigation only; the API enforces access itself. */
   role: "User" | "Admin";
+  /** ISO time the free trial ends. Null for admins, who have no trial. */
+  trialEndsAt: string | null;
+  /** Whole days left, never below 0. Null for admins. */
+  trialDaysRemaining: number | null;
+  /** True while Stripe reports the subscription active. Set only by the webhook, never by returning from Checkout. */
+  subscribed: boolean;
 };
 
 export type ApiFieldErrors = Partial<

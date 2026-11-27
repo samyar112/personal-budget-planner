@@ -451,7 +451,11 @@ public sealed class AuthController(
             return Unauthorized();
         }
 
-        return Ok(new MeResponse(user.Id, user.Email, user.Name, user.EmailVerifiedAt is not null, user.Role.ToString()));
+        return Ok(new MeResponse(user.Id, user.Email, user.Name, user.EmailVerifiedAt is not null,
+            user.Role.ToString(),
+            Trial.EndsAt(user),
+            Trial.DaysRemaining(user, DateTime.UtcNow),
+            Trial.IsSubscribed(user)));
     }
 
     /// <summary>

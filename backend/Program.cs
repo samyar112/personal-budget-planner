@@ -50,6 +50,7 @@ builder.Services.AddAdminAccess(builder.Configuration);
 builder.Services.AddPlaid(builder.Configuration);
 builder.Services.AddAiAdvisor(builder.Configuration);
 builder.Services.AddGoogleSignIn(builder.Configuration);
+builder.Services.AddBilling(builder.Configuration);
 
 builder.Services
     .AddOptions<JwtOptions>()

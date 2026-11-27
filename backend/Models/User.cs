@@ -22,4 +22,13 @@ public class User
 
     /// <summary>False blocks login and refresh. Set by an admin; never deletes data.</summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Stripe customer, created at first checkout so later webhooks can be matched to this user.</summary>
+    public string? StripeCustomerId { get; set; }
+
+    /// <summary>Stripe's own subscription status (<c>active</c>, <c>canceled</c>, ...). Written only by the webhook.</summary>
+    public string? SubscriptionStatus { get; set; }
+
+    /// <summary>Creation time of the Stripe event that last set the status. Older events arriving late are ignored.</summary>
+    public DateTime? SubscriptionUpdatedAt { get; set; }
 }
