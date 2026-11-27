@@ -182,7 +182,7 @@ public sealed class AuthController(
 
         AuthSecurityExtensions.ClearLoginFailures(user);
         await db.SaveChangesAsync(cancellationToken);
-        return await SignInAsync(user, cancellationToken);
+        return await SignInAsync(user, LoginMethod.Password, cancellationToken);
     }
 
     /// <summary>
@@ -202,7 +202,7 @@ public sealed class AuthController(
         var result = await loginCode.VerifyAsync(request.ChallengeId, request.Code, cancellationToken);
         return result.Status switch
         {
-            LoginCodeStatus.Success => await SignInAsync(result.User!, cancellationToken),
+            LoginCodeStatus.Success => await SignInAsync(result.User!, LoginMethod.EmailCode, cancellationToken),
             LoginCodeStatus.Locked => StatusCode(
                 StatusCodes.Status423Locked,
                 new { message = "Your account is temporarily locked. Please try again later." }),
@@ -317,7 +317,7 @@ public sealed class AuthController(
             }
         }
 
-        return await SignInAsync(user, cancellationToken);
+        return await SignInAsync(user, LoginMethod.Google, cancellationToken);
     }
 
     /// <summary>
@@ -332,14 +332,7 @@ public sealed class AuthController(
         user.EmailVerifiedAt = now;
         AuthSecurityExtensions.ClearLoginFailures(user);
 
-        var sessions = await db.RefreshTokens
-            .Where(token => token.UserId == user.Id && token.RevokedAt == null)
-            .ToListAsync(cancellationToken);
-        foreach (var token in sessions)
-        {
-            token.RevokedAt = now;
-            token.GraceExpiresAt = null;
-        }
+        await RefreshTokenService.EndAllSessionsAsync(db, user.Id, now, cancellationToken);
 
         var verifications = await db.EmailVerificationTokens
             .Where(token => token.UserId == user.Id && token.UsedAt == null)
@@ -358,7 +351,7 @@ public sealed class AuthController(
         }
     }
 
-    private async Task<ActionResult> SignInAsync(User user, CancellationToken cancellationToken)
+    private async Task<ActionResult> SignInAsync(User user, LoginMethod method, CancellationToken cancellationToken)
     {
         // Covers an account deactivated between the password step and the code step.
         if (!user.IsActive)
@@ -367,7 +360,7 @@ public sealed class AuthController(
         }
 
         var access = tokenProvider.Create(user);
-        var refresh = await refreshTokenService.IssueAsync(user, cancellationToken);
+        var refresh = await refreshTokenService.IssueAsync(user, method, cancellationToken);
         WriteAuthCookies(access, refresh);
 
         return Ok(new LoginResponse(access.ExpiresAt, user.Email, user.Name));

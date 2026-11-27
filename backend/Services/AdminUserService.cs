@@ -67,15 +67,7 @@ public sealed class AdminUserService(AppDbContext db)
 
         if (!active)
         {
-            var now = DateTime.UtcNow;
-            var live = await db.RefreshTokens
-                .Where(token => token.UserId == target.Id && token.RevokedAt == null)
-                .ToListAsync(cancellationToken);
-            foreach (var token in live)
-            {
-                token.RevokedAt = now;
-                token.GraceExpiresAt = null;
-            }
+            await RefreshTokenService.EndAllSessionsAsync(db, target.Id, DateTime.UtcNow, cancellationToken);
         }
 
         db.AdminAuditEntries.Add(new AdminAuditEntry
