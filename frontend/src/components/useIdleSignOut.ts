@@ -61,6 +61,9 @@ const useIdleSignOut = () => {
         } else if (!stopped) {
           await signOut();
         }
+      } catch {
+        // Offline or a server error says nothing about idleness: try again next tick. The server still
+        // enforces the timeout, so a long outage cannot keep the session alive.
       } finally {
         busy.current = false;
       }
