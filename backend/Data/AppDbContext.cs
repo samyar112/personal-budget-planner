@@ -17,6 +17,7 @@ public class AppDbContext : DbContext
     public DbSet<PlaidItem> PlaidItems => Set<PlaidItem>();
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<AiRecommendation> AiRecommendations => Set<AiRecommendation>();
+    public DbSet<ErrorLogEntry> ErrorLogEntries => Set<ErrorLogEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -186,6 +187,18 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(transaction => transaction.AccountId)
                 .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<ErrorLogEntry>(entity =>
+        {
+            entity.Property(entry => entry.TraceId).HasMaxLength(100);
+            entity.Property(entry => entry.Method).HasMaxLength(10);
+            entity.Property(entry => entry.Path).HasMaxLength(500);
+            entity.Property(entry => entry.ExceptionType).HasMaxLength(300);
+            entity.Property(entry => entry.Message).HasMaxLength(2000);
+            entity.Property(entry => entry.StackTrace).HasMaxLength(8000);
+            // The admin list is newest first, and the purge deletes by age.
+            entity.HasIndex(entry => entry.OccurredAt);
         });
     }
 }

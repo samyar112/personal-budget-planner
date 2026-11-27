@@ -73,6 +73,36 @@ public sealed class AdminController(AppDbContext db, AdminUserService adminUsers
     }
 
     /// <summary>
+    /// Unhandled server errors, newest first. Rows older than 30 days are purged as new ones arrive.
+    /// </summary>
+    [HttpGet("errors")]
+    [ProducesResponseType<ErrorLogListResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<ErrorLogListResponse>> ListErrors(
+        CancellationToken cancellationToken,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var total = await db.ErrorLogEntries.CountAsync(cancellationToken);
+        var items = await db.ErrorLogEntries
+            .AsNoTracking()
+            .OrderByDescending(entry => entry.OccurredAt)
+            .ThenBy(entry => entry.Id)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(entry => new ErrorLogEntryDto(
+                entry.Id, entry.OccurredAt, entry.TraceId, entry.Method, entry.Path, entry.StatusCode,
+                entry.ExceptionType, entry.Message, entry.StackTrace, entry.UserId))
+            .ToListAsync(cancellationToken);
+
+        return Ok(new ErrorLogListResponse(items, page, pageSize, total));
+    }
+
+    /// <summary>
     /// Blocks login and refresh and ends every session. An access token already issued works until
     /// it expires. Repeating the call changes nothing. Admins, including yourself, cannot be deactivated.
     /// </summary>
